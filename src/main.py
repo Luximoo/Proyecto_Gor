@@ -1,5 +1,6 @@
 import flet as ft
 from views.home import *
+from views.Rea_Pedido import *
 
 def main(page: ft.Page):
     page.title = "Aplicación con múltiples vistas"
@@ -7,13 +8,13 @@ def main(page: ft.Page):
 
     def route_change(route):
         page.views.clear()
-        if page.route == "/":
+        if page.route == "/home":
            #page.views.append(menu_view(page))
             #page.views.append(menuView(page))
             page.views.append(View_home(page))
-        """elif page.route == "/dashboard":
-            page.views.append(View(page))
-        elif page.route == "/login":
+        elif page.route == "/Pedidos":
+            page.views.append(View_RealizarPedido(page))
+        """elif page.route == "/login":
             page.views.append(menuView(page))
         elif page.route == "/home":
             page.views.append(menu_view(page))"""
@@ -21,6 +22,6 @@ def main(page: ft.Page):
         page.update()
 
     page.on_route_change = route_change
-    page.go("/")
+    page.go("/home")
 
 ft.app(target=main)

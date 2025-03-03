@@ -1,7 +1,7 @@
 import flet as ft
 hola = ft.Text("hola mundo",size=20)
 ho = True
-def View_home(page):
+def View_RealizarPedido(page):
     # Variable para almacenar el texto generado (vacía inicialmente)
     def cambiar(e):
         index = e.control.selected_index
@@ -29,9 +29,9 @@ def View_home(page):
             ho = True
         page.update()  # Actualiza la vista
     vi = ft.View(
-        route="/home",
+        route="/Pedidos",
         controls=[
-            ft.Text(value="Pagina Principal: aqui se va a desarrollar como recomendaciones que poducto se vende mas cosas generales"),
+            ft.Text(value="Pagina donde se realizaran los pedidos"),
             navegacion
         ]
     )
