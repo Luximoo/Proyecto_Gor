@@ -9,8 +9,6 @@ def main(page: ft.Page):
     def route_change(route):
         page.views.clear()
         if page.route == "/home":
-           #page.views.append(menu_view(page))
-            #page.views.append(menuView(page))
             page.views.append(View_home(page))
         elif page.route == "/Pedidos":
             page.views.append(View_RealizarPedido(page))
@@ -20,7 +18,6 @@ def main(page: ft.Page):
             page.views.append(menu_view(page))"""
 
         page.update()
-    page.add(ft.Text("esto no cambia"))
     page.on_route_change = route_change
     page.go("/home")
 
