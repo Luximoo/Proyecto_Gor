@@ -1,9 +1,14 @@
 import flet as ft
 from Utilidades.utils import *
-hola = ft.Text("hola mundo",size=20)
-ho = True
+
+gorPapas = ft.TextField(value=0,width=40)
+gorchicharron = ft.TextField(value=0,width=40)
+gorHuevoR = ft.TextField(value=0,width=40)
+
+
 def View_RealizarPedido(page):
     navegacion = crear_navegacion(page)
+        
     hol = ft.View(
         route="/",
         controls=[
@@ -18,19 +23,19 @@ def View_RealizarPedido(page):
                     ft.Row(controls=[
                     ft.Text("Papas"),
                     ft.IconButton(icon=ft.icons.REMOVE),
-                    ft.TextField(value=0,width=40),
+                    gorPapas,
                     ft.IconButton(icon=ft.icons.ADD)
                 ]),
                     ft.Row(controls= [
                         ft.Text("Chicarron"),
                         ft.IconButton(icon=ft.icons.REMOVE),
-                        ft.TextField(value=0,width=40),
+                        gorchicharron,
                         ft.IconButton(icon=ft.icons.ADD)
                     ]),
                     ft.Row(controls= [
                         ft.Text("Huevo rojo"),
                         ft.IconButton(icon=ft.icons.REMOVE),
-                        ft.TextField(value=0,width=40),
+                        gorHuevoR,
                         ft.IconButton(icon=ft.icons.ADD)
                     ]),
 
