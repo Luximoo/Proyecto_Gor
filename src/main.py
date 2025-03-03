@@ -20,7 +20,7 @@ def main(page: ft.Page):
             page.views.append(menu_view(page))"""
 
         page.update()
-
+    page.add(ft.Text("esto no cambia"))
     page.on_route_change = route_change
     page.go("/home")
 
