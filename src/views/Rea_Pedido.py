@@ -8,7 +8,7 @@ def View_RealizarPedido(page):
             title=ft.Text("Gorditas"),
             leading=ft.Icon(ft.icons.INFO_OUTLINE, color="#4A90E2"),
             icon_color="#4A90E2",
-            shape=ft.RoundedRectangleBorder(radius=12) 
+            shape=ft.RoundedRectangleBorder(radius=12),
             )
     def incrementar(index):
         def handler(e):
@@ -26,6 +26,7 @@ def View_RealizarPedido(page):
     guisosF = []
     textoG = []
     textfiel = []
+    textfielC = []
     valores = [0,0,0]
     botones_suma = []
     botones_resta = []
@@ -42,6 +43,7 @@ def View_RealizarPedido(page):
                 border_radius=10,  # Bordes redondeados
                 shadow=ft.BoxShadow(blur_radius=10, color=ft.colors.BLACK12),  # Sombra ligera
             ))
+        textfielC.append(ft.TextField(label="Comentario: ",width=50))
         botones_suma.append(ft.IconButton(ft.Icons.ADD,on_click=incrementar(va),icon_size=20,
                     icon_color="white",
                     style=ft.ButtonStyle(
@@ -65,10 +67,15 @@ def View_RealizarPedido(page):
         textoG[va],
         botones_resta[va],
         textfiel[va],
-        botones_suma[va]
+        botones_suma[va]    
         ]))
         columna.controls.append(guisosF[va])
+        columna.controls.append(ft.Column(controls=[
+                ft.Checkbox(label="Con queso", value=False),
+                ft.Checkbox(label="Con Frijoles", value=False),
+        ],spacing=0) )
         print(columna.controls[va])
+    for va in range(6):
         gorLista.controls.append(columna.controls[va])
     def prueba(e):
         for va in range (3):
