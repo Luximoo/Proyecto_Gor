@@ -6,10 +6,9 @@ def View_RealizarPedido(page):
     navegacion = crear_navegacion(page)
     gorLista = ft.ExpansionTile(
             title=ft.Text("Gorditas"),
-            affinity=ft.TileAffinity.PLATFORM,
-            maintain_state=True,
-            collapsed_text_color=ft.Colors.RED,
-            text_color=ft.Colors.RED,       
+            leading=ft.Icon(ft.icons.INFO_OUTLINE, color="#4A90E2"),
+            icon_color="#4A90E2",
+            shape=ft.RoundedRectangleBorder(radius=12) 
             )
     def incrementar(index):
         def handler(e):
@@ -32,11 +31,37 @@ def View_RealizarPedido(page):
     botones_resta = []
     columna = ft.Column()
     for va in range (3):
-        textoG.append(ft.Text(value=f"{guisosT[va]}",expand=True))
-        botones_suma.append(ft.IconButton(ft.Icons.ADD,on_click=incrementar(va)))
-        botones_resta.append(ft.IconButton(ft.Icons.REMOVE,on_click=decrementar(va)))
-        textfiel.append(ft.TextField(value=valores[va],width=100))
-        guisosF.append(ft.Row(controls=[
+        textoG.append(ft.Container(
+                content=ft.Text(f"{guisosT[va]}",size=16,  # Tamaño del texto
+                    weight=ft.FontWeight.BOLD,  # Negrita
+                    color="#333333"),
+                width=120,  # Ocupa el espacio disponible pero sin empujar demasiado
+                alignment=ft.alignment.center_left,
+                padding=ft.padding.symmetric(horizontal=15, vertical=10),  # Espaciado interno
+                bgcolor= ft.colors.ORANGE,  # Fondo del contenedor
+                border_radius=10,  # Bordes redondeados
+                shadow=ft.BoxShadow(blur_radius=10, color=ft.colors.BLACK12),  # Sombra ligera
+            ))
+        botones_suma.append(ft.IconButton(ft.Icons.ADD,on_click=incrementar(va),icon_size=20,
+                    icon_color="white",
+                    style=ft.ButtonStyle(
+                        bgcolor="#4A90E2",  # Azul moderno
+                        shape=ft.RoundedRectangleBorder(radius=12),  # Bordes redondeados
+                        elevation=3,  # Sombra para efecto 3D
+                        padding=ft.padding.all(10),  # Tamaño del botón
+                    ),))
+        botones_resta.append(ft.IconButton(ft.Icons.REMOVE,on_click=decrementar(va),icon_size=20,
+                    icon_color="white",
+                    style=ft.ButtonStyle(
+                        bgcolor="#4A90E2",  # Azul moderno
+                        shape=ft.RoundedRectangleBorder(radius=12),  # Bordes redondeados
+                        elevation=3,  # Sombra para efecto 3D
+                        padding=ft.padding.all(10),  # Tamaño del botón
+                    ),))
+        textfiel.append(ft.TextField(value=valores[va],width=75,border_radius=12,
+    border_color="#CCCCCC",
+    focused_border_color="#4A90E2",))
+        guisosF.append(ft.Row( alignment=ft.MainAxisAlignment.START,controls=[
         textoG[va],
         botones_resta[va],
         textfiel[va],
@@ -54,7 +79,7 @@ def View_RealizarPedido(page):
     hol = ft.View(
         route="/",
         controls=[
-            ft.Divider(height=4, color="green"),
+            ft.Divider(height=50),
             gorLista,
             navegacion,
             comprueba

@@ -5,6 +5,9 @@ from views.Rea_Pedido import *
 def main(page: ft.Page):
     page.title = "Aplicación con múltiples vistas"
     page.theme_mode = "light"
+    page.theme_mode = ft.ThemeMode.SYSTEM
+    #page.window.width = 944
+    #page.window.height = 1512
     page.window.width = 375
     page.window.height = 667
     def route_change(route):
