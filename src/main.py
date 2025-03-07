@@ -5,7 +5,8 @@ from views.Rea_Pedido import *
 def main(page: ft.Page):
     page.title = "Aplicación con múltiples vistas"
     page.theme_mode = "light"
-
+    page.window.width = 375
+    page.window.height = 667
     def route_change(route):
         page.views.clear()
         if page.route == "/home":
