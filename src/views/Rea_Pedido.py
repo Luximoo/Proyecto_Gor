@@ -22,16 +22,16 @@ def View_RealizarPedido(page):
             textfiel[index].value = str(valores[index])  # Actualizar el TextField
             page.update()
         return handler
-    guisosT = ["chicarron","papas","huevo rojo"] 
+    guisosT = ["Chicarron","Papas","Huevo rojo","Huevo verde","Nopales","Aldilla","Rajas","Chorizo"] 
     guisosF = []
     textoG = []
     textfiel = []
     textfielC = []
-    valores = [0,0,0]
+    valores = [0,0,0,0,0,0,0,0]
     botones_suma = []
     botones_resta = []
-    columna = ft.Column()
-    for va in range (3):
+    columna = ft.Column(controls=[],scroll=ft.ScrollMode.ALWAYS)
+    for va in range (len(guisosT)):
         textoG.append(ft.Container(
                 content=ft.Text(f"{guisosT[va]}",size=16,  # Tamaño del texto
                     weight=ft.FontWeight.BOLD,  # Negrita
@@ -70,12 +70,13 @@ def View_RealizarPedido(page):
         botones_suma[va]    
         ]))
         columna.controls.append(guisosF[va])
+        #gorLista.controls.append(columna.controls[va])
         columna.controls.append(ft.Column(controls=[
                 ft.Checkbox(label="Con queso", value=False),
                 ft.Checkbox(label="Con Frijoles", value=False),
         ],spacing=0) )
         print(columna.controls[va])
-    for va in range(6):
+    for va in range(len(guisosT)*2):
         gorLista.controls.append(columna.controls[va])
     def prueba(e):
         for va in range (3):
@@ -90,6 +91,7 @@ def View_RealizarPedido(page):
             gorLista,
             navegacion,
             comprueba
-        ]
+        ],
+        scroll=ft.ScrollMode.AUTO
     )
     return hol
