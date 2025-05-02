@@ -5,6 +5,7 @@ from Utilidades.utils import *
 def View_RealizarPedido(page):
     navegacion = crear_navegacion(page)
     son = 0
+    resumen = ft.TextField(label="Resumen de pedido",disabled=True,multiline=True,min_lines=1,max_lines=10)
     def handle_dismissal(e):
         page.add(ft.Text("Bottom sheet dismissed"))
     bs2 = ft.Column(
@@ -26,7 +27,9 @@ def View_RealizarPedido(page):
     def conmas(index):
         def handler(e):
             global son
-            print(f"de: {guisosT[son]} con: {guisosT[index]}")
+            print(f"de: {guisosT[son]} con: {guisosT[index]} {valores[son]}")
+            resumen.value = resumen.value + f"{guisosT[son]} con {guisosT[index]} {valores[son]} \n"
+            textfiel[son].value = 0
             page.update()
         return handler
 
@@ -50,7 +53,7 @@ def View_RealizarPedido(page):
     def decrementar(index):
         def handler(e):
             valores[index] -= 1  # Incrementar el valor
-            textfiel[index].value = str(valores[index])  # Actualizar el TextField
+            textfiel[index].value = str(valores[index])  # Actualizar el TextField dasdasgdg
             page.update()
         return handler
     guisosT = ["Chicarron","Papas","Huevo rojo","Huevo verde","Nopales","Aldilla","Rajas","Chorizo"] 
@@ -110,22 +113,32 @@ def View_RealizarPedido(page):
                 ft.Checkbox(label="Con Frijoles", value=False),
         ],spacing=0) )"""
         columna.controls.append(ft.ElevatedButton(key=va,text="Opciones", on_click=holl))
-        print(columna.controls[va])
+        #print(columna.controls[va])
     for va in range(len(guisosT)*2):
         gorLista.controls.append(columna.controls[va])
+    listaP=[]
     def prueba(e):
-        for va in range (3):
+        for va in range (len(guisosT)):
             if int(textfiel[va].value) != 0:
                 print(f"Gorditas de {guisosT[va]} {textfiel[va].value}")
-            page.update()
-    comprueba = ft.ElevatedButton(text="comprobar valor",on_click=prueba)   
+                resumen.value = resumen.value + f"Gorditas de {guisosT[va]} {textfiel[va].value} \n"
+                textfiel[va].value = 0
+        resumen.value = resumen.value + "----------------------------------- \n"
+        page.update()
+
+    comprueba = ft.ElevatedButton(text="REALIZAR PEDIDO",on_click=prueba,bgcolor=ft.colors.RED_300)   
+    Agregar = ft.ElevatedButton(text="Agregar",bgcolor=ft.colors.CYAN_ACCENT_200,on_click=prueba)
     hol = ft.View(
-        route="/",
+        route="/Pedidos",
         controls=[
             ft.Divider(height=50),
             gorLista,
             navegacion,
-            comprueba
+            resumen,
+            ft.ResponsiveRow(controls=[
+                Agregar,
+                comprueba
+            ])
         ],
         scroll=ft.ScrollMode.AUTO
     )

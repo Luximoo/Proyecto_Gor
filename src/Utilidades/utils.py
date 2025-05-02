@@ -14,13 +14,8 @@ def cambiar(page, e):
 def crear_navegacion(page):
     return ft.NavigationBar(
         destinations=[
-            ft.NavigationBarDestination(icon=ft.icons.EXPLORE, label="Explore"),
-            ft.NavigationBarDestination(icon=ft.icons.COMMUTE, label="Comute"),
-            ft.NavigationBarDestination(
-                icon=ft.icons.BOOKMARK_BORDER,
-                selected_icon=ft.icons.BOOKMARK,
-                label="Explore"
-            )
+            ft.NavigationBarDestination(icon=ft.icons.EXPLORE, label="Pedidos"),
+            ft.NavigationBarDestination(icon=ft.icons.COMMUTE, label="Ordenar"),
         ],
         on_change=lambda e: cambiar(page, e)  # Usamos una lambda para pasar el `page` a la función `cambiar`
     )
