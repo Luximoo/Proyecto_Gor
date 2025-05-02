@@ -1,5 +1,7 @@
 import flet as ft
 from Utilidades.utils import *
+import mysql.connector
+
 
 
 def View_RealizarPedido(page):
@@ -125,8 +127,22 @@ def View_RealizarPedido(page):
                 textfiel[va].value = 0
         resumen.value = resumen.value + "----------------------------------- \n"
         page.update()
-
-    comprueba = ft.ElevatedButton(text="REALIZAR PEDIDO",on_click=prueba,bgcolor=ft.colors.RED_300)   
+    db_config = {
+        "host": "localhost",
+        "user": "root",
+        "password": "",
+        "database": "gorditas"
+    }
+    def PedidoRealizado(e):
+        pedido = resumen.value
+        mydb = mysql.connector.connect(**db_config)
+        mycursor = mydb.cursor()
+        mycursor.execute(f"INSERT INTO pedidos (estado, pedido) VALUES (1, '{pedido}')")
+        mydb.commit()
+        mycursor.close()
+        mydb.close()
+        print(pedido)
+    comprueba = ft.ElevatedButton(text="REALIZAR PEDIDO",on_click=PedidoRealizado,bgcolor=ft.colors.RED_300)   
     Agregar = ft.ElevatedButton(text="Agregar",bgcolor=ft.colors.CYAN_ACCENT_200,on_click=prueba)
     hol = ft.View(
         route="/Pedidos",
