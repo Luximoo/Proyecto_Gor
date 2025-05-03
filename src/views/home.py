@@ -1,11 +1,12 @@
 import flet as ft
 from Utilidades.utils import *
+import Utilidades.utils
 import mysql.connector
 import time
 import threading
 hola = ft.Text("hola mundo",size=20)
-ho = ''
-
+hol = str(Utilidades.utils.texto.value)
+listacartas=ft.ResponsiveRow()
 def View_home(page):
     def tarea_actualizacion(page: ft.Page, texto_control: ft.Text):
         global ho
@@ -15,9 +16,6 @@ def View_home(page):
         """
         try:
             while True:
-                # 1. Obtén o calcula los datos nuevos
-                #      En este caso, la hora actual.
-                hora_actual = time.strftime("%H:%M:%S %p") # Formato HH:MM:SS AM/PM
                 db_config = {
                 "host": "localhost",
                 "user": "root",
@@ -27,17 +25,33 @@ def View_home(page):
                 texto_completo_con_saltos = ""  # Inicializamos una cadena vacía
                 mydb = mysql.connector.connect(**db_config)
                 mycursor = mydb.cursor()
+                mycursor.execute("SELECT COUNT(*) FROM pedidos WHERE estado = 1")
+                resultados = mycursor.fetchall()
+                print(resultados)
+                for va in resultados:
+                    for vaa in va:
+                        aux = vaa
                 mycursor.execute("SELECT pedido FROM pedidos WHERE estado = 1")
                 resultados = mycursor.fetchall()
-                texto_completo_con_saltos = ""  # Inicializamos una cadena vacía
-                for fila in resultados:
-                    texto_completo_con_saltos += fila[0]  # Concatenamos el texto de cada fila
+                for i, fila in enumerate(resultados):
+                    pedido_completo = fila[0]
+                    items_pedido = pedido_completo.strip().split('\n')  # Divide la cadena por saltos de línea
+                    print('\n'.join(items_pedido))
+                    listacartas.controls.append(
+                        create_info_card(
+                            title=f"Pedido #{i+1}",
+                            description='\n'.join(items_pedido), # Muestra todos los items en la descripción
+                            creator="Sistema"
+                    )
+                )
+                mycursor.execute("UPDATE pedidos SET estado = 2 WHERE estado = 1")
+                mydb.commit()
+                
                 print("Texto completo con saltos de línea:")
-                print(texto_completo_con_saltos)
                 # 2. Actualiza la propiedad del control Flet
                 #    Es importante asegurarse de que el control todavía existe.
                 if texto_control: # Comprueba si el control aún es válido
-                    texto_control.value = f"Pedidos> {texto_completo_con_saltos}"
+                    texto_control.value ="Esperando pedidos..."
                 else:
                     print("El control de texto ya no existe.")
                     break # Salir si el control fue eliminado
@@ -57,12 +71,6 @@ def View_home(page):
         except Exception as e:
         # Captura cualquier error inesperado en el hilo
             print(f"Error en el hilo de actualización: {e}")
-    db_config = {
-        "host": "localhost",
-        "user": "root",
-        "password": "",
-        "database": "gorditas"
-    }
     texto_dinamico = ft.Text(
         "Esperando actualización...",
         size=30,
@@ -70,23 +78,7 @@ def View_home(page):
         width=page.width # Opcional: ajustar ancho
     )
     # Variable para almacenar el texto generado (vacía inicialmente)
-    navegacion = crear_navegacion(page)
-    mydb = mysql.connector.connect(**db_config)
-    mycursor = mydb.cursor()
-    mycursor.execute("SELECT pedido FROM pedidos WHERE estado = 1")
-    resultados = mycursor.fetchall()
-    texto_completo_con_saltos = ""  # Inicializamos una cadena vacía
-    for fila in resultados:
-        texto_completo_con_saltos += fila[0]  # Concatenamos el texto de cada fila
-
-    # Ahora la variable 'texto_completo_con_saltos' contiene todo el texto
-    # de todas las filas seleccionadas, manteniendo los saltos de línea (\n).
-
-    # Ejemplo de cómo podrías imprimir esta variable:
-    print("Texto completo con saltos de línea:")
-    print(texto_completo_con_saltos)
-    global ho
-    ho = texto_completo_con_saltos
+    navegacion = crear_navegacion(page) 
     # Función que se llama cuando se presiona el botón
 
     # --- Creación e inicio del Hilo (Thread) ---
@@ -101,10 +93,11 @@ def View_home(page):
     vi = ft.View(
         route="/home",
         controls=[
-            ft.Text(value=texto_completo_con_saltos),
+            listacartas,
             texto_dinamico,
             navegacion
-        ]
+        ],
+        scroll=ft.ScrollMode.AUTO
     )
 
     return vi
