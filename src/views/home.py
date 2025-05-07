@@ -5,8 +5,8 @@ import mysql.connector
 import time
 import threading
 hola = ft.Text("hola mundo",size=20)
-hol = str(Utilidades.utils.texto.value)
 listacartas=ft.ResponsiveRow()
+contador= 0
 def View_home(page):
     def tarea_actualizacion(page: ft.Page, texto_control: ft.Text):
         global ho
@@ -27,23 +27,25 @@ def View_home(page):
                 mycursor = mydb.cursor()
                 mycursor.execute("SELECT COUNT(*) FROM pedidos WHERE estado = 1")
                 resultados = mycursor.fetchall()
-                print(resultados)
                 for va in resultados:
                     for vaa in va:
                         aux = vaa
                 mycursor.execute("SELECT pedido FROM pedidos WHERE estado = 1")
                 resultados = mycursor.fetchall()
-                for i, fila in enumerate(resultados):
-                    pedido_completo = fila[0]
-                    items_pedido = pedido_completo.strip().split('\n')  # Divide la cadena por saltos de línea
-                    print('\n'.join(items_pedido))
-                    listacartas.controls.append(
-                        create_info_card(
-                            title=f"Pedido #{i+1}",
-                            description='\n'.join(items_pedido), # Muestra todos los items en la descripción
-                            creator="Sistema"
-                    )
-                )
+                if(resultados):
+                    for i, fila in enumerate(resultados):
+                        global contador
+                        contador = contador + 1
+                        pedido_completo = fila[0]
+                        items_pedido = pedido_completo.strip().split('\n')  # Divide la cadena por saltos de línea
+                        print('\n'.join(items_pedido))
+                        listacartas.controls.append(
+                            create_info_card(
+                                title=f"Pedido #{i+1}",
+                                description='\n'.join(items_pedido), # Muestra todos los items en la descripción
+                                creator=f"Pedido #{contador}"
+                            )
+                        )
                 mycursor.execute("UPDATE pedidos SET estado = 2 WHERE estado = 1")
                 mydb.commit()
                 

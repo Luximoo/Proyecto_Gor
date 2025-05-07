@@ -5,6 +5,11 @@ import mysql.connector
 
 
 def View_RealizarPedido(page):
+    items_data = [
+        { "title": "Sistema Operativo", "icon": ft.icons.COMPUTER_OUTLINED, "details": "Contenido de Sistema Operativo..." },
+        { "title": "Inteligencia Artificial", "icon": ft.icons.INSIGHTS_OUTLINED, "details": "Contenido de Inteligencia Artificial..." },
+        { "title": "Estructuras de Datos", "icon": ft.icons.DATA_ARRAY_OUTLINED, "details": "Contenido de Estructuras de Datos..." }
+    ]
     navegacion = crear_navegacion(page)
     son = 0
     resumen = ft.TextField(label="Resumen de pedido",disabled=True,multiline=True,min_lines=1,max_lines=10)
@@ -12,13 +17,16 @@ def View_RealizarPedido(page):
         page.add(ft.Text("Bottom sheet dismissed"))
     bs2 = ft.Column(
             tight=True,
-            controls=[
-                ft.ElevatedButton("Close bottom sheet", on_click=lambda _: page.close(bs)),
-            ],
             scroll=ft.ScrollMode.ALWAYS
         )
     bs1= ft.Container(
-            padding=50,
+            padding=ft.padding.symmetric(horizontal=16, vertical=12), # Padding interno
+            border_radius=ft.border_radius.all(10), # Bordes redondeados para este contenedor
+            gradient=ft.LinearGradient(
+                begin=ft.alignment.center_left,
+                end=ft.alignment.center_right,
+                colors=[gradient_start_color, gradient_end_color],
+            ),            
             content=bs2
         )
     bs = ft.BottomSheet(
@@ -37,10 +45,11 @@ def View_RealizarPedido(page):
 
     
     gorLista = ft.ExpansionTile(
-            title=ft.Text("Gorditas"),
-            leading=ft.Icon(ft.icons.INFO_OUTLINE, color="#4A90E2"),
-            icon_color="#4A90E2",
-            shape=ft.RoundedRectangleBorder(radius=12),
+            title=create_custom_tile_header("Gorditas",ft.icons.COMPUTER_OUTLINED),
+            bgcolor=ft.colors.TRANSPARENT, # Para el fondo general del tile
+            collapsed_bgcolor=ft.colors.TRANSPARENT, # Para el fondo cuando está colapsado
+            tile_padding=ft.padding.all(0),
+            maintain_state=True, # Para que el estado se mantenga
             )
     def holl(e):
         global son
@@ -69,7 +78,14 @@ def View_RealizarPedido(page):
     botones_complemento = []
     columna = ft.Column(controls=[],scroll=ft.ScrollMode.ALWAYS)
     for va in range (len(guisosT)):
-        botones_complemento.append(ft.ElevatedButton(data=[va],text=f"Con: {guisosT[va]}",on_click=conmas(va)))
+        botones_complemento.append(ft.ElevatedButton(data=[va],on_click=conmas(va),
+                                content=create_styled_button(f"Con: {guisosT[va]}"),
+                                style=ft.ButtonStyle(
+                                shape=ft.RoundedRectangleBorder(radius=12), # Mismo radio que el contenedor interno
+                                padding=ft.padding.all(0), # ¡MUY IMPORTANTE! Sin padding extra del botón
+                                elevation=4, # Sombra del botón
+                                shadow_color=button_shadow_color, # Color de la sombra
+                                )))
         bs2.controls.append(botones_complemento[va])
         textoG.append(ft.Container(
                 content=ft.Text(f"{guisosT[va]}",size=16,  # Tamaño del texto
@@ -141,7 +157,7 @@ def View_RealizarPedido(page):
         mydb.commit()
         mycursor.close()
         mydb.close()
-        print(pedido)
+        resumen.value = ""
     comprueba = ft.ElevatedButton(text="REALIZAR PEDIDO",on_click=PedidoRealizado,bgcolor=ft.colors.RED_300)   
     Agregar = ft.ElevatedButton(text="Agregar",bgcolor=ft.colors.CYAN_ACCENT_200,on_click=prueba)
     hol = ft.View(

@@ -7,7 +7,9 @@ decorative_dot_color = ft.colors.with_opacity(0.5, ft.colors.PURPLE_300)
 text_color_primary = ft.colors.BLACK87
 text_color_secondary = ft.colors.BLACK54
 text_color_tertiary = ft.colors.BLACK45
-texto =  ft.Text("", weight=ft.FontWeight.BOLD, size=12, color=text_color_primary)
+icon_button_color = ft.colors.WHITE # Icono blanco sobre fondo púrpura
+text_button_color = ft.colors.WHITE
+button_shadow_color = ft.colors.PURPLE_200
 # Función para manejar el cambio de vista
 def cambiar(page, e):
     index = e.control.selected_index
@@ -28,8 +30,7 @@ def crear_navegacion(page):
         on_change=lambda e: cambiar(page, e)  # Usamos una lambda para pasar el `page` a la función `cambiar`
     )
 def create_info_card(title, description, creator):
-        texto.value = description
-        return ft.Container(
+        carta = ft.Container(
             width=450, # Ancho fijo para el ejemplo
             padding=ft.padding.all(20),
             margin=ft.margin.symmetric(vertical=10, horizontal=20), # Margen alrededor
@@ -63,7 +64,7 @@ def create_info_card(title, description, creator):
                     # Sección Central (Textos) - Usamos expand=True para que ocupe el espacio disponible
                     ft.Column(
                         [
-                            texto,
+                            ft.Text(description, weight=ft.FontWeight.BOLD, size=12, color=text_color_primary),
                             ft.Container(height=5), # Pequeño espacio
                             ft.Text(f"Created by {creator}", size=11, color=text_color_tertiary),
                         ],
@@ -87,4 +88,71 @@ def create_info_card(title, description, creator):
                     ),
                 ],
             ),
+        )
+        return carta
+def create_custom_tile_header(title_text, icon_name=ft.icons.APPS_OUTLINED):
+        return ft.Container(
+            # Este contenedor será el "title" del ExpansionTile
+            # Le damos el gradiente y la estructura interna
+            padding=ft.padding.symmetric(horizontal=16, vertical=12), # Padding interno
+            border_radius=ft.border_radius.all(10), # Bordes redondeados para este contenedor
+            gradient=ft.LinearGradient(
+                begin=ft.alignment.center_left,
+                end=ft.alignment.center_right,
+                colors=[gradient_start_color, gradient_end_color],
+            ),
+            content=ft.Row(
+                alignment=ft.MainAxisAlignment.START,
+                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                spacing=12,
+                controls=[
+                    # Sección Izquierda (Icono y decoración)
+                    ft.Row(
+                        spacing=6,
+                        controls=[
+                            ft.Icon(icon_name, size=26, color=icon_placeholder_color),
+                            ft.Column(
+                                 spacing=3,
+                                 alignment=ft.MainAxisAlignment.CENTER,
+                                 controls=[
+                                     ft.Container(width=6, height=6, border_radius=3, bgcolor=decorative_dot_color),
+                                     ft.Container(width=9, height=9, border_radius=4.5, bgcolor=decorative_dot_color),
+                                 ]
+                             )
+                        ]
+                    ),
+                    # Título (expand=True para que ocupe el espacio)
+                    ft.Text(title_text, weight=ft.FontWeight.BOLD, size=15, color=text_color_primary, expand=True),
+                    # El icono de expandir/colapsar (trailing) lo añade automáticamente el ExpansionTile
+                ]
+            )
+        )
+def create_styled_button(button_text: str):
+
+        # El contenido visual principal del botón
+        return ft.Container(
+            # Ancho: Podría ser fijo o adaptarse al contenido.
+            # Para un botón, usualmente se adapta, pero con padding.
+            # width=250, # Descomentar si necesitas un ancho fijo
+            padding=ft.padding.symmetric(horizontal=24, vertical=16), # Padding generoso
+            border_radius=ft.border_radius.all(12), # Radio para el gradiente
+            gradient=ft.LinearGradient(
+                begin=ft.alignment.center_left,
+                end=ft.alignment.center_right,
+                colors=[gradient_start_color, gradient_end_color],
+            ),
+            content=ft.Row(
+                alignment=ft.MainAxisAlignment.CENTER, # Centrar contenido si no hay icono a la izquierda
+                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                spacing=10, # Espacio entre icono/puntos y texto
+                controls=[
+                    # Sección Izquierda (Icono y decoración opcional),
+                    ft.Text(
+                        button_text,
+                        weight=ft.FontWeight.BOLD,
+                        size=15,
+                        color=text_button_color
+                    ),
+                ]
+            )
         )
