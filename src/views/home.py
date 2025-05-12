@@ -50,13 +50,10 @@ def View_home(page):
                 mydb.commit()
                 
                 print("Texto completo con saltos de línea:")
+
+                
                 # 2. Actualiza la propiedad del control Flet
                 #    Es importante asegurarse de que el control todavía existe.
-                if texto_control: # Comprueba si el control aún es válido
-                    texto_control.value ="Esperando pedidos..."
-                else:
-                    print("El control de texto ya no existe.")
-                    break # Salir si el control fue eliminado
 
                 # 3. Llama a page.update() para enviar los cambios a la UI
                 #    Esto debe hacerse para que el usuario vea el cambio.
@@ -73,6 +70,14 @@ def View_home(page):
         except Exception as e:
         # Captura cualquier error inesperado en el hilo
             print(f"Error en el hilo de actualización: {e}")
+    \
+    texto_esperando = ft.Row(
+        [
+            ft.Icon(ft.icons.HOURGLASS_EMPTY_ROUNDED, size=30, color=ft.colors.BLUE_ACCENT_700),
+            ft.Text("Esperando pedidos...", size=22, weight=ft.FontWeight.BOLD),
+        ],
+        alignment=ft.MainAxisAlignment.CENTER
+    )
     texto_dinamico = ft.Text(
         "Esperando actualización...",
         size=30,
@@ -90,16 +95,21 @@ def View_home(page):
         args=(page, texto_dinamico), # Argumentos para la función target
         daemon=True                  # True = El hilo termina si el programa principal cierra
     )
+
     hilo.start() # Inicia la ejecución del hilo en segundo plano
     print("Hilo iniciado.")
     vi = ft.View(
         route="/home",
         controls=[
             listacartas,
-            texto_dinamico,
+            texto_esperando,
             navegacion
         ],
-        scroll=ft.ScrollMode.AUTO
+        scroll=ft.ScrollMode.AUTO,
+        vertical_alignment = ft.MainAxisAlignment.CENTER, # Centra el contenido verticalmente en la página
+        horizontal_alignment = ft.CrossAxisAlignment.CENTER, # Centra el contenido horizontalmente en la página
+        padding = 20, # Añade un poco de padding alrededor de la página
+        bgcolor = ft.colors.BLUE_GREY_50 # Un color de fondo suave para la página
     )
 
     return vi
