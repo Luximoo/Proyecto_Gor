@@ -59,15 +59,17 @@ def View_RealizarPedido(page):
             print(f" {valores[son]} gordita de: {guisosT[son]} con: {guisosT[index]}")
             resumen.value = resumen.value + f"{valores[son]} Gordita de {guisosT[son]} con {guisosT[index]}  \n"
             textfiel[son].value = 0
+            valores[son] = 0
             page.close(bs)
             page.update()
         return handler
     def conmass(index):
         def handler(e):
             global son
-            print(f"sope de: {guisosTT[son]} con: {guisosTT[index]} {valoresa[son]}")
-            resumen.value = resumen.value + f"{valoresa[son]} Sope de {guisosTT[son]} con {guisosTT[index]}  \n"
+            print(f"sope de: {guisosTT[son]} --> {guisosTTT[index]} {valoresa[son]}")
+            resumen.value = resumen.value + f"{valoresa[son]} Sope de {guisosTT[son]} {guisosTTT[index]}  \n"
             textfiell[son].value = 0
+            valoresa[son] = 0
             page.close(bss)
             page.update()
         return handler
@@ -90,11 +92,13 @@ def View_RealizarPedido(page):
     def holl(e):
         global son
         son = e.control.key
-        page.open(bs)
+        if(valores[son] !=0):
+            page.open(bs)
     def holll(e):
         global son
         son = e.control.key
-        page.open(bss)
+        if(valores[son] !=0):
+            page.open(bss)
     def incrementar(index):
         def handler(e):
             valores[index] += 1  # Incrementar el valor
@@ -193,7 +197,8 @@ def View_RealizarPedido(page):
     listaP=[]
 
     #variables de controles de los sopes
-    guisosTT = ["Chicarron","Papas","Huevo rojo","Huevo verde","Nopales","Aldilla","Rajas","Chorizo"] 
+    guisosTT = ["Chicarron","Papas","Huevo rojo","Huevo verde","Nopales","Aldilla","Rajas","Chorizo"]
+    guisosTTT = ["Sin Cebolla","Sin Verdura","Sin Crema","Sin Queso","Con Chicarron","Con Papas","Con Huevo rojo","Con Huevo verde","Con Nopales","Con Aldilla","Con Rajas","Con Chorizo"]  
     guisosFF = []
     textoGG = []
     textfiell = []
@@ -203,10 +208,9 @@ def View_RealizarPedido(page):
     botones_restaa = []
     botones_complementoo = []
     columnaa = ft.Column(controls=[],spacing=10,scroll=ft.ScrollMode.ALWAYS)
-
-    for va in range (len(guisosTT)):
+    for va in range (len(guisosTTT)):
         botones_complementoo.append(ft.ElevatedButton(data=[va],on_click=conmass(va),
-                                content=create_styled_button(f"Con: {guisosTT[va]}"),
+                                content=create_styled_button(f"Con: {guisosTTT[va]}"),
                                 style=ft.ButtonStyle(
                                 shape=ft.RoundedRectangleBorder(radius=12), # Mismo radio que el contenedor interno
                                 padding=ft.padding.all(0), # ¡MUY IMPORTANTE! Sin padding extra del botón
@@ -214,6 +218,8 @@ def View_RealizarPedido(page):
                                 shadow_color=button_shadow_color, # Color de la sombra
                                 )))
         bs22.controls.append(botones_complementoo[va])
+
+    for va in range (len(guisosTT)):
         textoGG.append(ft.Container(
                 content=ft.Text(f"{guisosTT[va]}",size=16,  # Tamaño del texto
                     weight=ft.FontWeight.BOLD,  # Negrita
@@ -286,11 +292,13 @@ def View_RealizarPedido(page):
                 print(f"Gorditas de {guisosT[va]} {textfiel[va].value}")
                 resumen.value = resumen.value + f" {textfiel[va].value} Gordita de {guisosT[va]}\n"
                 textfiel[va].value = 0
+                valores[va] = 0
         for va in range (len(guisosTT)):
             if int(textfiell[va].value) != 0:
                 print(f"Gorditas de {guisosTT[va]} {textfiell[va].value}")
                 resumen.value = resumen.value + f" {textfiell[va].value} Sope de {guisosTT[va]}\n"
                 textfiell[va].value = 0
+                valoresa[va] = 0
         resumen.value = resumen.value + "-----------------------------------\n"
         page.update()
     db_config = {
@@ -308,25 +316,38 @@ def View_RealizarPedido(page):
         mycursor.close()
         mydb.close()
         resumen.value = ""
+    def ante(e):
+        resumen.value = eliminar_ultima_linea(resumen.value)
+        resumen.value = resumen.value + "\n"
+        resumen.update()
+    def eliminar_ultima_linea(texto):
+        lineas = texto.splitlines()
+        if lineas:  # Asegurarse de que la lista de líneas no esté vacía
+            lineas_sin_ultima = lineas[:-1]
+            return "\n".join(lineas_sin_ultima)
+        else:
+            return ""  # Si la cadena está vacía, devuelve una cadena vacía
     comprueba = ft.ElevatedButton(text="REALIZAR PEDIDO",on_click=PedidoRealizado,content=create_styled_button_Realizar(f"Realizar Pedido"))   
     Agregar = ft.ElevatedButton(text="Agregar",content=create_styled_button_opciones(f"Agregar a Pedido"),on_click=prueba)
+    Eliminar = ft.ElevatedButton(text="REALIZAR PEDIDO",on_click=ante,content=create_styled_button_eliminar(f"<-"))
     hol = ft.View(
         route="/Pedidos",
         controls=[
             ft.Divider(height=50),
+            ft.Column(controls=[
+            Agregar,
+            Eliminar,
+            comprueba],expand=True),
             gorLista,
             sopLista,
-            navegacion,
             resumen,
-            ft.ResponsiveRow(controls=[
-                Agregar,
-                comprueba
-            ])
+            navegacion
+            ,
         ],
         scroll=ft.ScrollMode.AUTO,
         vertical_alignment = ft.MainAxisAlignment.CENTER, # Centra el contenido verticalmente en la página
         horizontal_alignment = ft.CrossAxisAlignment.CENTER, # Centra el contenido horizontalmente en la página
         padding = 20, # Añade un poco de padding alrededor de la página
-        bgcolor = ft.colors.BLUE_GREY_50 # Un color de fondo suave para la página
+        bgcolor = ft.colors.BLUE_GREY_50, # Un color de fondo suave para la página
     )
     return hol

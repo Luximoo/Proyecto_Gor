@@ -14,6 +14,10 @@ text_color_tertiary = ft.colors.BLACK45
 icon_button_color = ft.colors.WHITE # Icono blanco sobre fondo púrpura
 text_button_color = ft.colors.WHITE
 button_shadow_color = ft.colors.BLACK87
+button_Realizar_colorP = ft.colors.GREEN_ACCENT_700
+button_Realizar_colorE = ft.colors.GREEN_ACCENT_200
+button_Eliminar_colorP = ft.colors.RED_ACCENT_700
+button_Eliminar_colorE = ft.colors.RED_ACCENT_200
 # Función para manejar el cambio de vista
 def cambiar(page, e):
     index = e.control.selected_index
@@ -28,8 +32,8 @@ def cambiar(page, e):
 def crear_navegacion(page):
     return ft.NavigationBar(
         destinations=[
-            ft.NavigationBarDestination(icon=ft.icons.EXPLORE, label="Pedidos"),
-            ft.NavigationBarDestination(icon=ft.icons.COMMUTE, label="Ordenar"),
+            ft.NavigationBarDestination(icon=ft.icons.LIST_ALT, label="Ver Pedidos"),
+            ft.NavigationBarDestination(icon=ft.icons.ADD_SHOPPING_CART, label="Ordenar"),
         ],
         on_change=lambda e: cambiar(page, e)  # Usamos una lambda para pasar el `page` a la función `cambiar`
     )
@@ -60,7 +64,7 @@ def create_info_card(title, description, creator,on_eliminar_callback):
                 ft.Row(
                     spacing=10, # Aumentado el espaciado para mejor visualización
                     controls=[
-                        ft.Icon(ft.icons.COMPUTER_OUTLINED, size=40, color=icon_placeholder_color), # Tamaño de icono ligeramente aumentado
+                        ft.Icon(ft.icons.RESTAURANT, size=40, color=icon_placeholder_color), # Tamaño de icono ligeramente aumentado
                         ft.Column(
                             spacing=5, # Espaciado entre puntos
                             controls=[
@@ -137,7 +141,7 @@ def create_custom_tile_header(title_text, icon_name=ft.icons.APPS_OUTLINED):
                     ft.Row(
                         spacing=6,
                         controls=[
-                            ft.Icon(icon_name, size=26, color=icon_placeholder_color),
+                            ft.Icon(ft.icons.FASTFOOD, size=26, color=icon_placeholder_color),
                             ft.Column(
                                  spacing=3,
                                  alignment=ft.MainAxisAlignment.CENTER,
@@ -212,6 +216,35 @@ def create_styled_button_opciones(button_text: str):
                 ]
             )
         )
+def create_styled_button_eliminar(button_text: str):
+
+        # El contenido visual principal del botón
+        return ft.Container(
+            # Ancho: Podría ser fijo o adaptarse al contenido.
+            # Para un botón, usualmente se adapta, pero con padding.
+            # width=250, # Descomentar si necesitas un ancho fijo
+            padding=ft.padding.symmetric(horizontal=10, vertical=8), # Padding generoso
+            border_radius=ft.border_radius.all(12), # Radio para el gradiente
+            gradient=ft.LinearGradient(
+                begin=ft.alignment.center_left,
+                end=ft.alignment.center_right,
+                colors=[button_Eliminar_colorP, button_Eliminar_colorE],
+            ),
+            content=ft.Row(
+                alignment=ft.MainAxisAlignment.CENTER, # Centrar contenido si no hay icono a la izquierda
+                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                spacing=10, # Espacio entre icono/puntos y texto
+                controls=[
+                    # Sección Izquierda (Icono y decoración opcional),
+                    ft.Text(
+                        button_text,
+                        weight=ft.FontWeight.BOLD,
+                        size=15,
+                        color=text_button_color
+                    ),
+                ]
+            )
+        )
 def create_styled_button_Realizar(button_text: str):
 
         # El contenido visual principal del botón
@@ -224,7 +257,7 @@ def create_styled_button_Realizar(button_text: str):
             gradient=ft.LinearGradient(
                 begin=ft.alignment.center_left,
                 end=ft.alignment.center_right,
-                colors=[gradient_start_colorrr, gradient_end_colorrr],
+                colors=[button_Realizar_colorP, button_Realizar_colorE],
             ),
             content=ft.Row(
                 alignment=ft.MainAxisAlignment.CENTER, # Centrar contenido si no hay icono a la izquierda
