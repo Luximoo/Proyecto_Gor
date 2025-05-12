@@ -8,6 +8,10 @@ hola = ft.Text("hola mundo",size=20)
 listacartas=ft.ResponsiveRow()
 contador= 0
 def View_home(page):
+    def _eliminar_tarjeta_de_ui(tarjeta_a_eliminar):
+        if tarjeta_a_eliminar in listacartas.controls:
+            listacartas.controls.remove(tarjeta_a_eliminar)
+            page.update()
     def tarea_actualizacion(page: ft.Page, texto_control: ft.Text):
         global ho
         """
@@ -43,7 +47,8 @@ def View_home(page):
                             create_info_card(
                                 title=f"Pedido #{i+1}",
                                 description='\n'.join(items_pedido), # Muestra todos los items en la descripción
-                                creator=f"Pedido #{contador}"
+                                creator=f"Pedido #{contador}",
+                                on_eliminar_callback=_eliminar_tarjeta_de_ui
                             )
                         )
                 mycursor.execute("UPDATE pedidos SET estado = 2 WHERE estado = 1")

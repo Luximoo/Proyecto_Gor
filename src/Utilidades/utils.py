@@ -33,10 +33,9 @@ def crear_navegacion(page):
         ],
         on_change=lambda e: cambiar(page, e)  # Usamos una lambda para pasar el `page` a la función `cambiar`
     )
-def create_info_card(title, description, creator):
-    """
-    Crea una tarjeta de información con texto centrado y tamaño de fuente mejorado.
-    """
+def create_info_card(title, description, creator,on_eliminar_callback):
+    def eliminar(e):
+        on_eliminar_callback(info_card)
     info_card = ft.Container(
         width=450,  # Ancho fijo para la tarjeta. Considera hacerlo responsivo si es necesario.
         padding=ft.padding.all(20),
@@ -110,7 +109,7 @@ def create_info_card(title, description, creator):
                     border_radius=22.5, # Mitad del ancho/alto para hacerlo círculo
                     alignment=ft.alignment.center,
                     ink=True,
-                    on_click=lambda e: print(f"Botón '{title}' presionado!"),
+                    on_click=eliminar,
                     # Columna para ResponsiveRow (ocupa 2 de 12 columnas en pantallas grandes)
                     col={"sm": 2, "md": 2}
                 ),
