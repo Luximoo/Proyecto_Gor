@@ -97,7 +97,7 @@ def View_RealizarPedido(page):
     def holll(e):
         global son
         son = e.control.key
-        if(valores[son] !=0):
+        if(valoresa[son] !=0):
             page.open(bss)
     def incrementar(index):
         def handler(e):
@@ -126,7 +126,7 @@ def View_RealizarPedido(page):
                 textfiell[index].value = str(valoresa[index])  # Actualizar el TextField dasdasgdg
             page.update()
         return handler
-    guisosT = ["Chicarron","Papas","Huevo rojo","Huevo verde","Nopales","Aldilla","Rajas","Chorizo"] 
+    guisosT = ["Chicharron","Papas","Huevo rojo","Huevo verde","Nopales","Aldilla","Rajas","Chorizo"] 
     guisosF = []
     textoG = []
     textfiel = []
@@ -197,8 +197,8 @@ def View_RealizarPedido(page):
     listaP=[]
 
     #variables de controles de los sopes
-    guisosTT = ["Chicarron","Papas","Huevo rojo","Huevo verde","Nopales","Aldilla","Rajas","Chorizo"]
-    guisosTTT = ["Sin Cebolla","Sin Verdura","Sin Crema","Sin Queso","Con Chicarron","Con Papas","Con Huevo rojo","Con Huevo verde","Con Nopales","Con Aldilla","Con Rajas","Con Chorizo"]  
+    guisosTT = ["Chicharron","Papas","Huevo rojo","Huevo verde","Nopales","Aldilla","Rajas","Chorizo"]
+    guisosTTT = ["Sin Cebolla","Sin Verdura","Sin Crema","Sin Queso","Con Chicharron","Con Papas","Con Huevo rojo","Con Huevo verde","Con Nopales","Con Aldilla","Con Rajas","Con Chorizo"]  
     guisosFF = []
     textoGG = []
     textfiell = []
@@ -210,7 +210,7 @@ def View_RealizarPedido(page):
     columnaa = ft.Column(controls=[],spacing=10,scroll=ft.ScrollMode.ALWAYS)
     for va in range (len(guisosTTT)):
         botones_complementoo.append(ft.ElevatedButton(data=[va],on_click=conmass(va),
-                                content=create_styled_button(f"Con: {guisosTTT[va]}"),
+                                content=create_styled_button(f"{guisosTTT[va]}"),
                                 style=ft.ButtonStyle(
                                 shape=ft.RoundedRectangleBorder(radius=12), # Mismo radio que el contenedor interno
                                 padding=ft.padding.all(0), # ¡MUY IMPORTANTE! Sin padding extra del botón
@@ -229,11 +229,13 @@ def View_RealizarPedido(page):
                 padding=ft.padding.symmetric(horizontal=15, vertical=10),  # Espaciado interno
                 bgcolor= ft.colors.ORANGE,  # Fondo del contenedor
                 border_radius=10,  # Bordes redondeados
-                shadow=ft.BoxShadow(blur_radius=10, color=ft.colors.BLACK12),  # Sombra ligera
+                shadow=ft.BoxShadow(blur_radius=10, color=ft.colors.BLACK12),
+                expand=True# Sombra ligera
             ))
-        textfielCC.append(ft.TextField(label="Comentario: ",width=50))
+        textfielCC.append(ft.TextField(label="Comentario: ",width=50,expand=True))
         botones_sumaa.append(ft.IconButton(ft.Icons.ADD,on_click=incrementarr(va),icon_size=20,
                     icon_color="white",
+                    expand=True,
                     style=ft.ButtonStyle(
                         bgcolor="#4A90E2",  # Azul moderno
                         shape=ft.RoundedRectangleBorder(radius=12),  # Bordes redondeados
@@ -242,6 +244,7 @@ def View_RealizarPedido(page):
                     ),))
         botones_restaa.append(ft.IconButton(ft.Icons.REMOVE,on_click=decrementarr(va),icon_size=20,
                     icon_color="white",
+                    expand=True,
                     style=ft.ButtonStyle(
                         bgcolor="#4A90E2",  # Azul moderno
                         shape=ft.RoundedRectangleBorder(radius=12),  # Bordes redondeados
@@ -251,8 +254,8 @@ def View_RealizarPedido(page):
         textfiell.append(ft.TextField(value=valores[va],width=75,border_radius=12,
     border_color="#CCCCCC",
     focused_border_color="#4A90E2",
-    disabled=True))
-        guisosFF.append(ft.Row( alignment=ft.MainAxisAlignment.START,controls=[
+    disabled=True,expand=True))
+        guisosFF.append(ft.Row(expand=True,alignment=ft.MainAxisAlignment.START,controls=[
         textoGG[va],
         botones_restaa[va],
         textfiell[va],

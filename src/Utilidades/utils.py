@@ -37,9 +37,9 @@ def crear_navegacion(page):
         ],
         on_change=lambda e: cambiar(page, e)  # Usamos una lambda para pasar el `page` a la función `cambiar`
     )
-def create_info_card(title, description, creator,on_eliminar_callback):
-    def eliminar(e):
-        on_eliminar_callback(info_card)
+def create_info_card(order_id,title, description,on_complete_callback):
+    #def eliminar(e):
+    #    on_eliminar_callback(info_card)
     info_card = ft.Container(
         width=450,  # Ancho fijo para la tarjeta. Considera hacerlo responsivo si es necesario.
         padding=ft.padding.all(20),
@@ -89,7 +89,7 @@ def create_info_card(title, description, creator,on_eliminar_callback):
                         ),
                         ft.Container(height=8), # Espacio aumentado
                         ft.Text(
-                            f"{creator}", # Texto más descriptivo
+                            f"Numero de orden {order_id}", # Texto más descriptivo
                             size=16, # Tamaño de fuente aumentado para creador
                             color=text_color_tertiary,
                             text_align=ft.TextAlign.CENTER, # Asegura centrado del texto
@@ -113,7 +113,7 @@ def create_info_card(title, description, creator,on_eliminar_callback):
                     border_radius=22.5, # Mitad del ancho/alto para hacerlo círculo
                     alignment=ft.alignment.center,
                     ink=True,
-                    on_click=eliminar,
+                    on_click=lambda e, oid=order_id: on_complete_callback(e, oid),
                     # Columna para ResponsiveRow (ocupa 2 de 12 columnas en pantallas grandes)
                     col={"sm": 2, "md": 2}
                 ),
