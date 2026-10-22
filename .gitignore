@@ -1,2 +1,26 @@
-**/.__pycache__
-**/.Rea_Pedido.cpython-313.pyc
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+
+# Environment & credentials
+.env
+.env.local
+
+# Virtual environments
+.venv/
+env/
+venv/
+ENV/
+
+# Flet build / cache
+.flet/
+build/
+dist/
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
