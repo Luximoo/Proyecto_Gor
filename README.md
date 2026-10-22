@@ -4,9 +4,11 @@ Aplicación de punto de venta y monitor de pedidos en tiempo real desarrollada c
 
 ## Estructura del Proyecto
 
-- `src/main.py`: Punto de entrada de la aplicación y enrutador.
-- `src/views/`: Vistas de la aplicación (Toma de pedidos y Monitor de cocina).
-- `src/Utilidades/`: Componentes gráficos y temas de interfaz.
+- `src/main.py`: Punto de entrada de la aplicación y enrutador de vistas.
+- `src/config.py`: Carga de variables de entorno (`.env`) y constantes globales.
+- `src/data/`: Acceso a base de datos MySQL (`db.py`) y catálogo del menú (`menu.py`).
+- `src/ui/`: Tema de colores/gradientes (`theme.py`) y componentes reutilizables (`components.py`).
+- `src/views/`: Vistas de la aplicación (`home.py` para cocina y `pedido.py` para tomar órdenes).
 - `db/schema.sql`: Script de creación de la base de datos y tabla `pedidos`.
 
 ## Requisitos Previos
