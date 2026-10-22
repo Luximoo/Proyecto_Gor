@@ -24,19 +24,20 @@ def with_opacity(opacity: float, color: str) -> str:
     return f"{color},{opacity}"
 
 
-# Gradientes principales (naranja cálido a rojo semitransparente)
+# Gradientes principales (naranja cálido para encabezados y tarjetas)
 COLOR_GRADIENTE_PRIMARIO_INICIO = colors.ORANGE_ACCENT_400
-COLOR_GRADIENTE_PRIMARIO_FIN = with_opacity(0.5, colors.RED_ACCENT_700)
+COLOR_GRADIENTE_PRIMARIO_FIN = with_opacity(0.85, colors.RED_ACCENT_700)
 GRADIENTE_PRIMARIO = [COLOR_GRADIENTE_PRIMARIO_INICIO, COLOR_GRADIENTE_PRIMARIO_FIN]
 
-# Gradiente oscuro/azul para botones de opciones y complementos
-COLOR_GRADIENTE_BOTON_INICIO = colors.BLACK87
-COLOR_GRADIENTE_BOTON_FIN = with_opacity(0.5, colors.BLUE_700)
+# Gradientes de acción y botones
+GRADIENTE_AGREGAR = [colors.BLUE_700, colors.BLUE_500]
+COLOR_GRADIENTE_BOTON_INICIO = colors.BLUE_GREY_800
+COLOR_GRADIENTE_BOTON_FIN = colors.BLUE_GREY_600
 GRADIENTE_BOTON = [COLOR_GRADIENTE_BOTON_INICIO, COLOR_GRADIENTE_BOTON_FIN]
 
 # Gradientes de acción (Realizar pedido / Eliminar última línea)
-GRADIENTE_REALIZAR = [colors.GREEN_ACCENT_700, colors.GREEN_ACCENT_200]
-GRADIENTE_ELIMINAR = [colors.RED_ACCENT_700, colors.RED_ACCENT_200]
+GRADIENTE_REALIZAR = [colors.GREEN_700, colors.GREEN_500]
+GRADIENTE_ELIMINAR = [colors.RED_700, colors.RED_500]
 
 # Colores de texto e iconos
 COLOR_TEXTO_PRIMARIO = colors.BLACK87

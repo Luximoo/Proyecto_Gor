@@ -15,17 +15,20 @@ from data.menu import (
     OpcionComplemento,
 )
 from ui.components import (
+    crear_boton_gradiente,
     crear_campo_cantidad,
     crear_contenedor_bottom_sheet,
     crear_fila_guiso,
     crear_navegacion,
     create_custom_tile_header,
     create_styled_button,
+    create_styled_button_agregar,
     create_styled_button_eliminar,
     create_styled_button_opciones,
     create_styled_button_realizar,
 )
 from ui.theme import (
+    COLOR_BORDE_INPUT,
     COLOR_ETIQUETA_GORDITA,
     COLOR_ETIQUETA_SOPE,
     COLOR_FONDO_PAGINA,
@@ -84,15 +87,9 @@ class SeccionPlatillo:
 
         for opcion in self.opciones_complemento:
             columna_opciones_bs.controls.append(
-                ft.ElevatedButton(
+                crear_boton_gradiente(
+                    contenido_gradiente=create_styled_button(opcion.etiqueta_boton),
                     on_click=seleccionar_complemento(opcion),
-                    content=create_styled_button(opcion.etiqueta_boton),
-                    style=ft.ButtonStyle(
-                        shape=ft.RoundedRectangleBorder(radius=12),
-                        padding=ft.padding.all(0),
-                        elevation=4,
-                        shadow_color=COLOR_SOMBRA_BOTON,
-                    ),
                 )
             )
 
@@ -137,8 +134,8 @@ class SeccionPlatillo:
                 color_etiqueta=self.color_etiqueta,
                 expandir=self.expandir_controles,
             )
-            btn_opciones = ft.ElevatedButton(
-                content=create_styled_button_opciones("Opciones"),
+            btn_opciones = crear_boton_gradiente(
+                contenido_gradiente=create_styled_button_opciones("Opciones"),
                 on_click=abrir_opciones(idx),
             )
             controles_tile.extend([fila, btn_opciones])
@@ -176,10 +173,17 @@ def view_realizar_pedido(page: ft.Page) -> ft.View:
     resumen = ft.TextField(
         label="Resumen de pedido",
         value="",
-        disabled=True,
+        read_only=True,
         multiline=True,
         min_lines=1,
         max_lines=10,
+        bgcolor=colors.WHITE,
+        border_color=COLOR_BORDE_INPUT,
+        text_style=ft.TextStyle(
+            color=colors.BLACK87,
+            size=15,
+            weight=ft.FontWeight.W_500,
+        ),
     )
 
     def actualizar_texto_resumen() -> None:
@@ -243,16 +247,16 @@ def view_realizar_pedido(page: ft.Page) -> ft.View:
         except Exception as err:
             logging.error(f"Error inesperado al registrar el pedido: {err}")
 
-    btn_agregar = ft.ElevatedButton(
-        content=create_styled_button_opciones("Agregar a Pedido"),
+    btn_agregar = crear_boton_gradiente(
+        contenido_gradiente=create_styled_button_agregar("Agregar a Pedido"),
         on_click=agregar_al_pedido,
     )
-    btn_deshacer = ft.ElevatedButton(
-        content=create_styled_button_eliminar("<-"),
+    btn_deshacer = crear_boton_gradiente(
+        contenido_gradiente=create_styled_button_eliminar("<-"),
         on_click=eliminar_ultima_linea,
     )
-    btn_enviar = ft.ElevatedButton(
-        content=create_styled_button_realizar("Realizar Pedido"),
+    btn_enviar = crear_boton_gradiente(
+        contenido_gradiente=create_styled_button_realizar("Realizar Pedido"),
         on_click=enviar_pedido,
     )
 

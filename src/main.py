@@ -23,7 +23,7 @@ from views.pedido import view_realizar_pedido
 def main(page: ft.Page) -> None:
     """Inicializa la configuración de la ventana y registra el enrutador de vistas."""
     page.title = "Gorditas y Sopes - Gestión de Pedidos"
-    page.theme_mode = ft.ThemeMode.SYSTEM
+    page.theme_mode = ft.ThemeMode.LIGHT
 
     # Soporte compatible para dimensiones de ventana
     try:

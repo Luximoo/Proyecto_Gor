@@ -14,6 +14,7 @@ from ui.theme import (
     COLOR_TEXTO_ETIQUETA,
     COLOR_TEXTO_PRIMARIO,
     COLOR_TEXTO_TERCIARIO,
+    GRADIENTE_AGREGAR,
     GRADIENTE_BOTON,
     GRADIENTE_ELIMINAR,
     GRADIENTE_PRIMARIO,
@@ -249,8 +250,13 @@ def create_styled_button(button_text: str) -> ft.Container:
     return boton_gradiente(button_text, GRADIENTE_BOTON, padding_h=24, padding_v=16)
 
 
+def create_styled_button_agregar(button_text: str) -> ft.Container:
+    """Contenido de botón para 'Agregar a Pedido' con gradiente azul profesional."""
+    return boton_gradiente(button_text, GRADIENTE_AGREGAR, padding_h=14, padding_v=10)
+
+
 def create_styled_button_opciones(button_text: str) -> ft.Container:
-    """Contenido de botón mediano para 'Opciones' y 'Agregar a Pedido'."""
+    """Contenido de botón mediano para 'Opciones'."""
     return boton_gradiente(button_text, GRADIENTE_BOTON, padding_h=12, padding_v=8)
 
 
@@ -262,6 +268,26 @@ def create_styled_button_eliminar(button_text: str) -> ft.Container:
 def create_styled_button_realizar(button_text: str) -> ft.Container:
     """Contenido de botón verde para confirmar y enviar el pedido."""
     return boton_gradiente(button_text, GRADIENTE_REALIZAR, padding_h=10, padding_v=8)
+
+
+def crear_boton_gradiente(
+    contenido_gradiente: ft.Container,
+    on_click: Callable[[ft.ControlEvent], None],
+    expandir: bool = False,
+) -> ft.ElevatedButton:
+    """Crea un ElevatedButton sin padding ni fondo por defecto para que el gradiente encaje limpio."""
+    return ft.ElevatedButton(
+        content=contenido_gradiente,
+        on_click=on_click,
+        expand=expandir,
+        style=ft.ButtonStyle(
+            padding=ft.padding.all(0),
+            shape=ft.RoundedRectangleBorder(radius=12),
+            bgcolor=colors.TRANSPARENT,
+            shadow_color=colors.TRANSPARENT,
+            elevation=2,
+        ),
+    )
 
 
 def crear_contenedor_bottom_sheet(columna_opciones: ft.Column) -> ft.Container:
@@ -279,14 +305,23 @@ def crear_contenedor_bottom_sheet(columna_opciones: ft.Column) -> ft.Container:
 
 
 def crear_campo_cantidad(valor_inicial: int = 0, expandir: bool = False) -> ft.TextField:
-    """Crea el campo de texto de solo lectura que muestra la cantidad seleccionada."""
+    """Crea el campo de texto de cantidad: de solo lectura, centrado, con texto negro nítido."""
     return ft.TextField(
         value=str(valor_inicial),
-        width=75,
+        width=65,
+        height=45,
+        text_align=ft.TextAlign.CENTER,
+        text_size=18,
+        text_style=ft.TextStyle(
+            weight=ft.FontWeight.BOLD,
+            color=colors.BLACK87,
+        ),
+        bgcolor=colors.WHITE,
         border_radius=12,
         border_color=COLOR_BORDE_INPUT,
         focused_border_color=COLOR_BOTON_CONTADOR,
-        disabled=True,
+        read_only=True,
+        content_padding=ft.padding.symmetric(vertical=8, horizontal=4),
         expand=expandir,
     )
 
