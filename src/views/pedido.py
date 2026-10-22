@@ -1,4 +1,4 @@
-"""Vista de toma de pedidos para meseros (`/Pedidos`): platos, productos y envío a cocina."""
+"""Vista de toma y edición de pedidos (`/Pedidos`, `/pedido` y `/pedido/{id}`)."""
 
 from __future__ import annotations
 
@@ -8,10 +8,18 @@ from typing import Callable
 import flet as ft
 import mysql.connector
 
-from data.repositorio import cargar_catalogo, guardar_pedido
+from data.repositorio import (
+    ErrorConcurrenciaPedido,
+    PedidoNoEncontradoError,
+    actualizar_pedido,
+    cargar_catalogo,
+    cargar_pedido,
+    guardar_pedido,
+)
 from domain.modelos import (
     Catalogo,
     ErrorValidacionDominio,
+    EstadoPedido,
     Item,
     Pedido,
     Plato,
@@ -38,7 +46,7 @@ def _mostrar_aviso(page: ft.Page, mensaje: str, es_error: bool = False) -> None:
             size=14,
         ),
         bgcolor=colors.RED_700 if es_error else colors.GREEN_700,
-        duration=2500,
+        duration=2800,
     )
     try:
         page.open(snack)
@@ -57,29 +65,63 @@ def _cargar_catalogo_seguro() -> Catalogo:
         return catalogo_por_defecto()
 
 
+def _huella_estado_pedido(pedido: Pedido) -> str:
+    """Genera una representación textual del estado actual del pedido para detectar cambios."""
+    servicio = pedido.tipo_servicio.value if pedido.tipo_servicio else "NONE"
+    partes = [f"S:{servicio}"]
+    for plato in pedido.platos:
+        if plato.esta_vacio:
+            continue
+        partes.append(f"P{plato.numero}:")
+        for it in plato.items:
+            partes.append(it.formatear_linea())
+    return "|".join(partes)
+
+
 def view_realizar_pedido(
     page: ft.Page,
+    pedido_id_editar: int | None = None,
     on_abrir_personalizacion: Callable[[ft.Page, Catalogo, Plato, int, Callable[[], None]], None]
     | None = None,
 ) -> ft.View:
     """
-    Construye la pantalla de toma de pedidos (`/Pedidos`) con:
-    - Selector obligatorio de tipo de servicio (Mesa / Para llevar).
-    - Pestañas dinámicas de platos (`Plato 1`, `Plato 2`, `+ Plato`).
-    - Selector de producto (`Gordita`, `Sope`) y cuadrícula de guisos de 1 toque.
-    - Lista interactiva del plato activo con `[−]`, `[+]` y `[✎]`.
-    - Barra inferior con totales y confirmación antes de enviar.
+    Construye la pantalla de toma de pedidos (`/Pedidos`) o edición (`/pedido/{id}`):
+    - Si `pedido_id_editar` es None: crea un pedido nuevo (`Mesa`/`Llevar` sin preselección).
+    - Si `pedido_id_editar` tiene un ID: carga el pedido existente para editarlo con control
+      de versión (bloqueo optimista) y aviso al salir con cambios sin guardar.
     """
     catalogo = _cargar_catalogo_seguro()
     productos_disponibles = catalogo.nombres_productos or ["Gordita", "Sope"]
+    es_modo_edicion = pedido_id_editar is not None
+
+    pedido_inicial = Pedido(tipo_servicio=None)
+    version_original = 1
+    estaba_completado = False
+
+    if es_modo_edicion and pedido_id_editar is not None:
+        try:
+            pedido_inicial = cargar_pedido(pedido_id_editar)
+            version_original = pedido_inicial.version
+            estaba_completado = pedido_inicial.estado == EstadoPedido.COMPLETADO
+        except PedidoNoEncontradoError as err:
+            _mostrar_aviso(page, str(err), es_error=True)
+            es_modo_edicion = False
 
     estado_vista = {
-        "pedido": Pedido(tipo_servicio=None),
-        "plato_activo_num": 1,
+        "pedido": pedido_inicial,
+        "version_original": version_original,
+        "estaba_completado": estaba_completado,
+        "huella_inicial": _huella_estado_pedido(pedido_inicial),
+        "plato_activo_num": pedido_inicial.platos[0].numero if pedido_inicial.platos else 1,
         "producto_activo": productos_disponibles[0],
     }
 
-    # Contenedores dinámicos que se refrescan al interactuar
+    # Contenedores dinámicos
+    encabezado_superior = ft.Row(
+        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+        vertical_alignment=ft.CrossAxisAlignment.CENTER,
+    )
+    banner_info_edicion = ft.Container(visible=False)
     contenedor_servicio = ft.Row(spacing=10, alignment=ft.MainAxisAlignment.CENTER)
     fila_pestanas_platos = ft.Row(
         spacing=8,
@@ -106,6 +148,102 @@ def view_realizar_pedido(
         except ErrorValidacionDominio:
             estado_vista["plato_activo_num"] = pedido.platos[0].numero
             return pedido.platos[0]
+
+    def hay_cambios_sin_guardar() -> bool:
+        return _huella_estado_pedido(obtener_pedido()) != str(estado_vista["huella_inicial"])
+
+    def intentar_salir_a_ruta(ruta_destino: str) -> None:
+        """Si hay cambios sin guardar, pide confirmación antes de abandonar la pantalla."""
+        if not hay_cambios_sin_guardar():
+            page.go(ruta_destino)
+            return
+
+        def confirmar_salida(_e: ft.ControlEvent) -> None:
+            page.close(dialogo_salir)
+            page.go(ruta_destino)
+
+        dialogo_salir = ft.AlertDialog(
+            modal=True,
+            title=ft.Text("Cambios sin guardar", weight=ft.FontWeight.BOLD, size=18),
+            content=ft.Text(
+                "Tienes cambios sin guardar en este pedido. ¿Seguro que deseas salir y descartarlos?",
+                size=14,
+                color=colors.BLACK87,
+            ),
+            actions=[
+                ft.TextButton(
+                    "Seguir aquí",
+                    on_click=lambda _e: page.close(dialogo_salir),
+                ),
+                ft.ElevatedButton(
+                    "Salir sin guardar",
+                    bgcolor=colors.RED_700,
+                    color=colors.WHITE,
+                    on_click=confirmar_salida,
+                ),
+            ],
+            actions_alignment=ft.MainAxisAlignment.END,
+        )
+        page.open(dialogo_salir)
+
+    def recargar_pedido_desde_bd() -> None:
+        """Recarga la versión más reciente del pedido cuando hubo un conflicto de concurrencia."""
+        if pedido_id_editar is None:
+            return
+        try:
+            actualizado = cargar_pedido(pedido_id_editar)
+            estado_vista["pedido"] = actualizado
+            estado_vista["version_original"] = actualizado.version
+            estado_vista["estaba_completado"] = actualizado.estado == EstadoPedido.COMPLETADO
+            estado_vista["huella_inicial"] = _huella_estado_pedido(actualizado)
+            estado_vista["plato_activo_num"] = actualizado.platos[0].numero
+            refrescar_todo()
+            _mostrar_aviso(
+                page,
+                f"Se cargó la versión más reciente (#v{actualizado.version}) del Pedido #{actualizado.id}",
+                es_error=False,
+            )
+        except Exception as err:
+            _mostrar_aviso(page, f"No se pudo recargar el pedido: {err}", es_error=True)
+
+    def mostrar_dialogo_conflicto(mensaje_conflicto: str) -> None:
+        """Muestra un aviso claro cuando otro usuario editó el pedido al mismo tiempo."""
+
+        def accion_recargar(_e: ft.ControlEvent) -> None:
+            page.close(dialogo_conflicto)
+            recargar_pedido_desde_bd()
+
+        def accion_volver(_e: ft.ControlEvent) -> None:
+            page.close(dialogo_conflicto)
+            page.go("/home")
+
+        dialogo_conflicto = ft.AlertDialog(
+            modal=True,
+            title=ft.Row(
+                spacing=8,
+                controls=[
+                    ft.Icon(icons.WARNING_AMBER_ROUNDED, color=colors.AMBER_800, size=24),
+                    ft.Text("Pedido modificado en otra pantalla", weight=ft.FontWeight.BOLD, size=16),
+                ],
+            ),
+            content=ft.Text(
+                f"{mensaje_conflicto}\n\n"
+                "Para evitar sobrescribir los cambios de la otra persona, recarga la versión más reciente.",
+                size=14,
+                color=colors.BLACK87,
+            ),
+            actions=[
+                ft.TextButton("Volver al monitor", on_click=accion_volver),
+                ft.ElevatedButton(
+                    "Recargar versión actual",
+                    bgcolor=colors.BLUE_700,
+                    color=colors.WHITE,
+                    on_click=accion_recargar,
+                ),
+            ],
+            actions_alignment=ft.MainAxisAlignment.END,
+        )
+        page.open(dialogo_conflicto)
 
     # --- Acciones de estado ---
 
@@ -161,30 +299,53 @@ def view_realizar_pedido(
             return
 
         resumen_texto = formatear_pedido(pedido)
+        titulo_dialogo = (
+            f"Guardar cambios en Pedido #{pedido.id}"
+            if es_modo_edicion
+            else "Confirmar pedido nuevo"
+        )
+        texto_boton_confirmar = "Guardar Cambios" if es_modo_edicion else "Confirmar y Enviar"
 
         def ejecutar_guardado(_ev: ft.ControlEvent) -> None:
             page.close(dialogo_confirmar)
             try:
-                guardado = guardar_pedido(pedido, catalogo)
-                _mostrar_aviso(
-                    page,
-                    f"Pedido #{guardado.id} ({guardado.tipo_servicio.etiqueta}) enviado a cocina",
-                    es_error=False,
-                )
-                # Reiniciar para el siguiente pedido sin selección por defecto
-                estado_vista["pedido"] = Pedido(tipo_servicio=None)
-                estado_vista["plato_activo_num"] = 1
-                refrescar_todo()
+                if es_modo_edicion:
+                    ver_esp = int(estado_vista["version_original"])
+                    actualizado = actualizar_pedido(
+                        pedido,
+                        version_esperada=ver_esp,
+                        catalogo=catalogo,
+                    )
+                    _mostrar_aviso(
+                        page,
+                        f"Pedido #{actualizado.id} actualizado (edición #{actualizado.version - 1})",
+                        es_error=False,
+                    )
+                    page.go("/home")
+                else:
+                    guardado = guardar_pedido(pedido, catalogo)
+                    _mostrar_aviso(
+                        page,
+                        f"Pedido #{guardado.id} ({guardado.tipo_servicio.etiqueta}) enviado a cocina",
+                        es_error=False,
+                    )
+                    nuevo_limpio = Pedido(tipo_servicio=None)
+                    estado_vista["pedido"] = nuevo_limpio
+                    estado_vista["huella_inicial"] = _huella_estado_pedido(nuevo_limpio)
+                    estado_vista["plato_activo_num"] = 1
+                    refrescar_todo()
+            except ErrorConcurrenciaPedido as conf_err:
+                mostrar_dialogo_conflicto(str(conf_err))
             except mysql.connector.Error as db_err:
                 logging.error(f"Error de base de datos al guardar pedido: {db_err}")
                 _mostrar_aviso(page, f"Error de BD: {db_err}", es_error=True)
             except Exception as exc:
                 logging.error(f"Error inesperado al guardar pedido: {exc}")
-                _mostrar_aviso(page, f"Error al enviar: {exc}", es_error=True)
+                _mostrar_aviso(page, f"Error al guardar: {exc}", es_error=True)
 
         dialogo_confirmar = ft.AlertDialog(
             modal=True,
-            title=ft.Text("Confirmar pedido", weight=ft.FontWeight.BOLD, size=18),
+            title=ft.Text(titulo_dialogo, weight=ft.FontWeight.BOLD, size=18),
             content=ft.Container(
                 width=300,
                 padding=ft.padding.all(10),
@@ -203,7 +364,7 @@ def view_realizar_pedido(
                     on_click=lambda _ev: page.close(dialogo_confirmar),
                 ),
                 ft.ElevatedButton(
-                    "Confirmar y Enviar",
+                    texto_boton_confirmar,
                     bgcolor=colors.GREEN_700,
                     color=colors.WHITE,
                     on_click=ejecutar_guardado,
@@ -214,6 +375,56 @@ def view_realizar_pedido(
         page.open(dialogo_confirmar)
 
     # --- Renderizado de secciones ---
+
+    def renderizar_encabezado() -> None:
+        pedido = obtener_pedido()
+        if es_modo_edicion and pedido.id is not None:
+            encabezado_superior.controls = [
+                ft.Row(
+                    spacing=6,
+                    controls=[
+                        ft.Icon(icons.EDIT_NOTE, color=colors.DEEP_ORANGE_700, size=24),
+                        ft.Text(
+                            f"Editando Pedido #{pedido.id}",
+                            size=19,
+                            weight=ft.FontWeight.BOLD,
+                            color=colors.BLACK87,
+                        ),
+                    ],
+                ),
+                ft.TextButton(
+                    text="Cancelar",
+                    icon=icons.CLOSE,
+                    style=ft.ButtonStyle(color=colors.RED_700),
+                    on_click=lambda _e: intentar_salir_a_ruta("/home"),
+                ),
+            ]
+            if bool(estado_vista["estaba_completado"]):
+                banner_info_edicion.visible = True
+                banner_info_edicion.content = ft.Container(
+                    bgcolor=colors.AMBER_100,
+                    border=ft.border.all(1, colors.AMBER_700),
+                    border_radius=8,
+                    padding=ft.padding.symmetric(horizontal=10, vertical=6),
+                    content=ft.Text(
+                        "Este pedido ya estaba completado. Al guardar cambios volverá a Pendientes en cocina con la etiqueta MODIFICADO.",
+                        size=12,
+                        weight=ft.FontWeight.W_500,
+                        color=colors.BLACK87,
+                    ),
+                )
+            else:
+                banner_info_edicion.visible = False
+        else:
+            encabezado_superior.controls = [
+                ft.Text(
+                    "Tomar Pedido",
+                    size=20,
+                    weight=ft.FontWeight.BOLD,
+                    color=colors.BLACK87,
+                )
+            ]
+            banner_info_edicion.visible = False
 
     def renderizar_selector_servicio() -> None:
         actual = obtener_pedido().tipo_servicio
@@ -288,7 +499,6 @@ def view_realizar_pedido(
                 )
             )
 
-        # Botón "+ Plato"
         controles.append(
             ft.Container(
                 bgcolor=colors.BLUE_50,
@@ -348,7 +558,6 @@ def view_realizar_pedido(
         reglas = catalogo.obtener_reglas(prod_activo)
         plato = obtener_plato_activo()
 
-        # Contar cuántas piezas de cada guiso hay en el plato activo para ese producto
         conteo_por_guiso: dict[str, int] = {}
         for it in plato.items:
             if it.producto == prod_activo:
@@ -529,6 +738,8 @@ def view_realizar_pedido(
             texto_boton = "Elige Mesa o Llevar"
         elif not tiene_items:
             texto_boton = "Agrega platillos"
+        elif es_modo_edicion:
+            texto_boton = "GUARDAR CAMBIOS ▶"
         else:
             texto_boton = "ENVIAR ▶"
 
@@ -573,6 +784,7 @@ def view_realizar_pedido(
         )
 
     def refrescar_todo() -> None:
+        renderizar_encabezado()
         renderizar_selector_servicio()
         renderizar_pestanas_platos()
         renderizar_selector_producto()
@@ -581,7 +793,7 @@ def view_realizar_pedido(
         renderizar_barra_inferior()
         page.update()
 
-    # Render inicial antes de devolver la vista
+    renderizar_encabezado()
     renderizar_selector_servicio()
     renderizar_pestanas_platos()
     renderizar_selector_producto()
@@ -589,17 +801,19 @@ def view_realizar_pedido(
     renderizar_lista_plato_activo()
     renderizar_barra_inferior()
 
-    navegacion = crear_navegacion(page, selected_index=1)
+    navegacion = crear_navegacion(
+        page,
+        selected_index=1,
+        on_intentar_navegar=intentar_salir_a_ruta,
+    )
+
+    ruta_actual = f"/pedido/{pedido_id_editar}" if es_modo_edicion else "/Pedidos"
 
     return ft.View(
-        route="/Pedidos",
+        route=ruta_actual,
         controls=[
-            ft.Text(
-                "Tomar Pedido",
-                size=20,
-                weight=ft.FontWeight.BOLD,
-                color=colors.BLACK87,
-            ),
+            encabezado_superior,
+            banner_info_edicion,
             contenedor_servicio,
             ft.Divider(height=4, color=colors.BLUE_GREY_100),
             fila_pestanas_platos,

@@ -20,12 +20,19 @@ from views.home import view_home
 from views.pedido import view_realizar_pedido
 
 
+def _extraer_pedido_id_de_ruta(ruta: str) -> int | None:
+    """Si la ruta tiene formato `/pedido/{id}`, devuelve el entero `id`; si no, `None`."""
+    partes = [p for p in ruta.strip("/").split("/") if p]
+    if len(partes) == 2 and partes[0].lower() == "pedido" and partes[1].isdigit():
+        return int(partes[1])
+    return None
+
+
 def main(page: ft.Page) -> None:
     """Inicializa la configuración de la ventana y registra el enrutador de vistas."""
     page.title = "Gorditas y Sopes - Gestión de Pedidos"
     page.theme_mode = ft.ThemeMode.LIGHT
 
-    # Soporte compatible para dimensiones de ventana
     try:
         page.window.width = WINDOW_WIDTH
         page.window.height = WINDOW_HEIGHT
@@ -37,14 +44,20 @@ def main(page: ft.Page) -> None:
             pass
 
     def route_change(_e: ft.RouteChangeEvent) -> None:
+        ruta = page.route or "/home"
+
         # Si salimos de /home, detener inmediatamente el hilo de sondeo de cocina
-        if page.route != "/home":
+        if ruta != "/home":
             stop_event = getattr(page, "_home_stop_event", None)
             if stop_event is not None:
                 stop_event.set()
 
         page.views.clear()
-        if page.route == "/Pedidos":
+        pedido_id_editar = _extraer_pedido_id_de_ruta(ruta)
+
+        if pedido_id_editar is not None:
+            page.views.append(view_realizar_pedido(page, pedido_id_editar=pedido_id_editar))
+        elif ruta in ("/Pedidos", "/pedido"):
             page.views.append(view_realizar_pedido(page))
         else:
             page.views.append(view_home(page))
