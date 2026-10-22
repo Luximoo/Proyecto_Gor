@@ -215,7 +215,7 @@ def view_realizar_pedido(
 
         def accion_volver(_e: ft.ControlEvent) -> None:
             page.close(dialogo_conflicto)
-            page.go("/home")
+            page.go("/editar-pedidos")
 
         dialogo_conflicto = ft.AlertDialog(
             modal=True,
@@ -321,7 +321,7 @@ def view_realizar_pedido(
                         f"Pedido #{actualizado.id} actualizado (edición #{actualizado.version - 1})",
                         es_error=False,
                     )
-                    page.go("/home")
+                    page.go("/editar-pedidos")
                 else:
                     guardado = guardar_pedido(pedido, catalogo)
                     _mostrar_aviso(
@@ -396,7 +396,7 @@ def view_realizar_pedido(
                     text="Cancelar",
                     icon=icons.CLOSE,
                     style=ft.ButtonStyle(color=colors.RED_700),
-                    on_click=lambda _e: intentar_salir_a_ruta("/home"),
+                    on_click=lambda _e: intentar_salir_a_ruta("/editar-pedidos"),
                 ),
             ]
             if bool(estado_vista["estaba_completado"]):
@@ -803,7 +803,7 @@ def view_realizar_pedido(
 
     navegacion = crear_navegacion(
         page,
-        selected_index=1,
+        selected_index=2 if es_modo_edicion else 1,
         on_intentar_navegar=intentar_salir_a_ruta,
     )
 

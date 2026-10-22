@@ -16,6 +16,7 @@ if not hasattr(ft, "Icons") and _icons:
     ft.Icons = _icons
 
 from config import WINDOW_HEIGHT, WINDOW_WIDTH
+from views.editar_pedidos import view_editar_pedidos
 from views.home import view_home
 from views.pedido import view_realizar_pedido
 
@@ -57,6 +58,8 @@ def main(page: ft.Page) -> None:
 
         if pedido_id_editar is not None:
             page.views.append(view_realizar_pedido(page, pedido_id_editar=pedido_id_editar))
+        elif ruta == "/editar-pedidos":
+            page.views.append(view_editar_pedidos(page))
         elif ruta in ("/Pedidos", "/pedido"):
             page.views.append(view_realizar_pedido(page))
         else:

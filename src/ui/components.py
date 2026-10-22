@@ -1,4 +1,4 @@
-"""Componentes visuales reutilizables de la interfaz."""
+"""Componentes visuales reutilizables de la interfaz (Cocina, Mesero y Navegación)."""
 
 from __future__ import annotations
 
@@ -17,6 +17,7 @@ if TYPE_CHECKING:
 RUTAS_NAVEGACION = {
     0: "/home",
     1: "/Pedidos",
+    2: "/editar-pedidos",
 }
 
 
@@ -40,59 +41,50 @@ def crear_navegacion(
     selected_index: int | None = None,
     on_intentar_navegar: Callable[[str], None] | None = None,
 ) -> ft.NavigationBar:
-    """Crea la barra de navegación inferior marcando la pestaña actual."""
+    """
+    Crea la barra de navegación inferior con 3 secciones:
+    0: Cocina (/home)
+    1: Ordenar (/Pedidos)
+    2: Editar Pedidos (/editar-pedidos)
+    """
     if selected_index is None:
-        es_vista_pedido = page.route == "/Pedidos" or page.route.startswith("/pedido")
-        selected_index = 1 if es_vista_pedido else 0
+        ruta = page.route or "/home"
+        if ruta == "/editar-pedidos" or ruta.startswith("/pedido/"):
+            selected_index = 2
+        elif ruta in ("/Pedidos", "/pedido"):
+            selected_index = 1
+        else:
+            selected_index = 0
 
     return ft.NavigationBar(
         selected_index=selected_index,
         destinations=[
-            ft.NavigationBarDestination(icon=icons.LIST_ALT, label="Ver Pedidos"),
+            ft.NavigationBarDestination(icon=icons.LIST_ALT, label="Cocina"),
             ft.NavigationBarDestination(icon=icons.ADD_SHOPPING_CART, label="Ordenar"),
+            ft.NavigationBarDestination(icon=icons.EDIT_NOTE, label="Editar Pedidos"),
         ],
         on_change=lambda e: _cambiar_vista(page, e, on_intentar_navegar),
     )
 
 
-def crear_tarjeta_pedido_cocina(
-    pedido: "Pedido",
-    on_editar: Callable[[int], None],
-    on_completar: Callable[[int], None] | None = None,
-) -> ft.Container:
-    """
-    Crea la tarjeta visual de un `Pedido` estructurada por platos para el monitor de cocina.
-    Muestra número de pedido, insignia MESA / PARA LLEVAR, etiqueta MODIFICADO (si version > 1),
-    hora, desglose por platos y botones de Editar y Completar.
-    """
-    from domain.modelos import EstadoPedido, TipoServicio
-
-    pedido_id = pedido.id or 0
-    es_mesa = pedido.tipo_servicio == TipoServicio.MESA
-    es_pendiente = pedido.estado == EstadoPedido.PENDIENTE
-    fue_modificado = pedido.version > 1
-
-    # Hora legible
-    marca_tiempo = pedido.updated_at or pedido.created_at
-    hora_str = marca_tiempo.strftime("%H:%M") if marca_tiempo else ""
-
-    # Insignia de tipo de servicio (Mesa vs Para llevar)
-    insignia_servicio = ft.Container(
+def _crear_insignia_servicio(es_mesa: bool) -> ft.Container:
+    """Insignia clara para distinguir MESA vs PARA LLEVAR."""
+    return ft.Container(
         bgcolor=colors.BLUE_700 if es_mesa else colors.DEEP_ORANGE_700,
         border_radius=8,
-        padding=ft.padding.symmetric(horizontal=10, vertical=4),
+        padding=ft.padding.symmetric(horizontal=10, vertical=5),
         content=ft.Row(
-            spacing=4,
+            spacing=5,
             tight=True,
             controls=[
                 ft.Icon(
                     icons.RESTAURANT if es_mesa else icons.SHOPPING_BAG,
-                    size=14,
+                    size=15,
                     color=colors.WHITE,
                 ),
                 ft.Text(
                     "MESA" if es_mesa else "PARA LLEVAR",
-                    size=12,
+                    size=13,
                     weight=ft.FontWeight.BOLD,
                     color=colors.WHITE,
                 ),
@@ -100,7 +92,194 @@ def crear_tarjeta_pedido_cocina(
         ),
     )
 
-    # Encabezado principal de la tarjeta
+
+def _crear_bloques_platos(pedido: "Pedido", tamano_item: int = 17, tamano_detalle: int = 14) -> list[ft.Control]:
+    """Construye los bloques visuales de cada plato con letra grande y legible."""
+    bloques: list[ft.Control] = []
+    for plato in pedido.platos:
+        if plato.esta_vacio:
+            continue
+
+        lineas_plato: list[ft.Control] = [
+            ft.Container(
+                bgcolor=colors.ORANGE_100,
+                border_radius=6,
+                padding=ft.padding.symmetric(horizontal=10, vertical=4),
+                content=ft.Row(
+                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                    controls=[
+                        ft.Text(
+                            f"Plato {plato.numero}",
+                            size=14,
+                            weight=ft.FontWeight.BOLD,
+                            color=colors.DEEP_ORANGE_900,
+                        ),
+                        ft.Text(
+                            f"{plato.total_piezas} pzs",
+                            size=13,
+                            weight=ft.FontWeight.BOLD,
+                            color=colors.DEEP_ORANGE_900,
+                        ),
+                    ],
+                ),
+            )
+        ]
+
+        for item in plato.items:
+            detalle = item.formatear_detalle()
+            controles_item: list[ft.Control] = [
+                ft.Text(
+                    f"• {item.formatear_titulo()}",
+                    size=tamano_item,
+                    weight=ft.FontWeight.BOLD,
+                    color=colors.BLACK87,
+                )
+            ]
+            if detalle:
+                controles_item.append(
+                    ft.Container(
+                        padding=ft.padding.only(left=16),
+                        content=ft.Text(
+                            detalle,
+                            size=tamano_detalle,
+                            weight=ft.FontWeight.BOLD,
+                            color=colors.RED_800,
+                        ),
+                    )
+                )
+            lineas_plato.append(ft.Column(spacing=2, controls=controles_item))
+
+        bloques.append(
+            ft.Container(
+                bgcolor=colors.BLUE_GREY_50,
+                border_radius=10,
+                padding=ft.padding.all(10),
+                content=ft.Column(spacing=6, controls=lineas_plato),
+            )
+        )
+    return bloques
+
+
+def crear_tarjeta_pedido_cocina(
+    pedido: "Pedido",
+    on_completar: Callable[[int], None],
+) -> ft.Container:
+    """
+    Tarjeta limpia y de alta legibilidad exclusiva para el monitor de cocina (`/home`).
+    Sin botón de editar ni distracciones: solo número de orden, Mesa/Llevar, platos
+    con letra grande y botón de Listo.
+    """
+    from domain.modelos import TipoServicio
+
+    pedido_id = pedido.id or 0
+    es_mesa = pedido.tipo_servicio == TipoServicio.MESA
+    fue_modificado = pedido.version > 1
+
+    fila_encabezado = ft.Row(
+        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+        vertical_alignment=ft.CrossAxisAlignment.CENTER,
+        controls=[
+            ft.Row(
+                spacing=8,
+                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                controls=[
+                    ft.Text(
+                        f"#{pedido_id}",
+                        size=22,
+                        weight=ft.FontWeight.BOLD,
+                        color=colors.BLACK87,
+                    ),
+                    _crear_insignia_servicio(es_mesa),
+                ],
+            ),
+            ft.ElevatedButton(
+                text="Listo",
+                icon=icons.CHECK_CIRCLE,
+                bgcolor=colors.GREEN_700,
+                color=colors.WHITE,
+                height=38,
+                style=ft.ButtonStyle(
+                    shape=ft.RoundedRectangleBorder(radius=10),
+                ),
+                on_click=lambda _e, pid=pedido_id: on_completar(pid),
+            ),
+        ],
+    )
+
+    controles_tarjeta: list[ft.Control] = [fila_encabezado]
+
+    if fue_modificado:
+        controles_tarjeta.append(
+            ft.Container(
+                bgcolor=colors.AMBER_300,
+                border=ft.border.all(1, colors.AMBER_800),
+                border_radius=6,
+                padding=ft.padding.symmetric(horizontal=8, vertical=4),
+                content=ft.Row(
+                    spacing=5,
+                    tight=True,
+                    controls=[
+                        ft.Icon(icons.AUTORENEW, size=15, color=colors.BLACK87),
+                        ft.Text(
+                            "PEDIDO MODIFICADO",
+                            size=12,
+                            weight=ft.FontWeight.BOLD,
+                            color=colors.BLACK87,
+                        ),
+                    ],
+                ),
+            )
+        )
+
+    controles_tarjeta.extend(_crear_bloques_platos(pedido, tamano_item=17, tamano_detalle=14))
+
+    return ft.Container(
+        data=pedido_id,
+        bgcolor=colors.WHITE,
+        padding=ft.padding.all(14),
+        margin=ft.margin.symmetric(vertical=6, horizontal=2),
+        border_radius=14,
+        border=ft.border.all(2, colors.AMBER_700 if fue_modificado else colors.ORANGE_400),
+        shadow=ft.BoxShadow(
+            spread_radius=1,
+            blur_radius=6,
+            color=with_opacity(0.12, colors.BLACK),
+            offset=ft.Offset(0, 3),
+        ),
+        content=ft.Column(spacing=10, controls=controles_tarjeta),
+    )
+
+
+def crear_tarjeta_pedido_mesero(
+    pedido: "Pedido",
+    on_editar: Callable[[int], None],
+) -> ft.Container:
+    """
+    Tarjeta para la sección 'Editar Pedidos' (`/editar-pedidos`) de los meseros.
+    Muestra el detalle del pedido, su estado ('En cocina' o 'Completado'), hora
+    y el botón para editarlo.
+    """
+    from domain.modelos import EstadoPedido, TipoServicio
+
+    pedido_id = pedido.id or 0
+    es_mesa = pedido.tipo_servicio == TipoServicio.MESA
+    es_pendiente = pedido.estado == EstadoPedido.PENDIENTE
+
+    marca_tiempo = pedido.updated_at or pedido.created_at
+    hora_str = marca_tiempo.strftime("%H:%M") if marca_tiempo else ""
+
+    insignia_estado = ft.Container(
+        bgcolor=colors.ORANGE_100 if es_pendiente else colors.GREEN_100,
+        border_radius=6,
+        padding=ft.padding.symmetric(horizontal=8, vertical=3),
+        content=ft.Text(
+            "En cocina" if es_pendiente else "Completado",
+            size=11,
+            weight=ft.FontWeight.BOLD,
+            color=colors.DEEP_ORANGE_900 if es_pendiente else colors.GREEN_800,
+        ),
+    )
+
     fila_encabezado = ft.Row(
         alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
         vertical_alignment=ft.CrossAxisAlignment.CENTER,
@@ -115,168 +294,44 @@ def crear_tarjeta_pedido_cocina(
                         weight=ft.FontWeight.BOLD,
                         color=colors.BLACK87,
                     ),
-                    insignia_servicio,
+                    _crear_insignia_servicio(es_mesa),
                 ],
             ),
-            ft.Text(
-                hora_str,
-                size=13,
-                weight=ft.FontWeight.BOLD,
-                color=colors.BLUE_GREY_600,
+            ft.Row(
+                spacing=6,
+                controls=[
+                    insignia_estado,
+                    ft.Text(
+                        hora_str,
+                        size=12,
+                        weight=ft.FontWeight.BOLD,
+                        color=colors.BLUE_GREY_600,
+                    ),
+                ],
             ),
         ],
     )
 
-    controles_tarjeta: list[ft.Control] = [fila_encabezado]
-
-    # Etiqueta MODIFICADO cuando version > 1
-    if fue_modificado:
-        controles_tarjeta.append(
-            ft.Container(
-                bgcolor=colors.AMBER_300,
-                border=ft.border.all(1, colors.AMBER_800),
-                border_radius=6,
-                padding=ft.padding.symmetric(horizontal=8, vertical=3),
-                content=ft.Row(
-                    spacing=5,
-                    tight=True,
-                    controls=[
-                        ft.Icon(icons.AUTORENEW, size=14, color=colors.BLACK87),
-                        ft.Text(
-                            f"MODIFICADO (edición #{pedido.version - 1})",
-                            size=11,
-                            weight=ft.FontWeight.BOLD,
-                            color=colors.BLACK87,
-                        ),
-                    ],
-                ),
-            )
-        )
-
-    # Bloques por cada plato del pedido
-    for plato in pedido.platos:
-        if plato.esta_vacio:
-            continue
-
-        lineas_plato: list[ft.Control] = [
-            ft.Container(
-                bgcolor=colors.ORANGE_100,
-                border_radius=6,
-                padding=ft.padding.symmetric(horizontal=8, vertical=3),
-                content=ft.Row(
-                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                    controls=[
-                        ft.Text(
-                            f"── Plato {plato.numero} ──",
-                            size=13,
-                            weight=ft.FontWeight.BOLD,
-                            color=colors.DEEP_ORANGE_900,
-                        ),
-                        ft.Text(
-                            f"{plato.total_piezas} pzs",
-                            size=12,
-                            weight=ft.FontWeight.BOLD,
-                            color=colors.DEEP_ORANGE_900,
-                        ),
-                    ],
-                ),
-            )
-        ]
-
-        for item in plato.items:
-            detalle = item.formatear_detalle()
-            controles_item: list[ft.Control] = [
-                ft.Text(
-                    f"• {item.formatear_titulo()}",
-                    size=15,
-                    weight=ft.FontWeight.BOLD,
-                    color=colors.BLACK87,
-                )
-            ]
-            if detalle:
-                controles_item.append(
-                    ft.Container(
-                        padding=ft.padding.only(left=14),
-                        content=ft.Text(
-                            detalle,
-                            size=13,
-                            weight=ft.FontWeight.BOLD,
-                            color=colors.RED_800,
-                        ),
-                    )
-                )
-            lineas_plato.append(ft.Column(spacing=1, controls=controles_item))
-
-        controles_tarjeta.append(
-            ft.Container(
-                bgcolor=colors.BLUE_GREY_50,
-                border_radius=8,
-                padding=ft.padding.all(8),
-                content=ft.Column(spacing=5, controls=lineas_plato),
-            )
-        )
-
-    # Pie de tarjeta con botones de Editar y Listo
-    controles_acciones: list[ft.Control] = [
-        ft.OutlinedButton(
-            text="Editar",
-            icon=icons.EDIT,
-            style=ft.ButtonStyle(
-                color=colors.BLUE_GREY_800,
-                shape=ft.RoundedRectangleBorder(radius=8),
-            ),
-            on_click=lambda _e, pid=pedido_id: on_editar(pid),
-        )
-    ]
-
-    if es_pendiente and on_completar is not None:
-        controles_acciones.append(
-            ft.ElevatedButton(
-                text="Listo",
-                icon=icons.CHECK_CIRCLE,
-                bgcolor=colors.GREEN_700,
-                color=colors.WHITE,
-                style=ft.ButtonStyle(
-                    shape=ft.RoundedRectangleBorder(radius=8),
-                ),
-                on_click=lambda _e, pid=pedido_id: on_completar(pid),
-            )
-        )
-    else:
-        controles_acciones.append(
-            ft.Container(
-                bgcolor=colors.GREEN_100,
-                border_radius=8,
-                padding=ft.padding.symmetric(horizontal=10, vertical=6),
-                content=ft.Row(
-                    spacing=4,
-                    tight=True,
-                    controls=[
-                        ft.Icon(icons.CHECK, size=15, color=colors.GREEN_800),
-                        ft.Text(
-                            "Completado",
-                            size=12,
-                            weight=ft.FontWeight.BOLD,
-                            color=colors.GREEN_800,
-                        ),
-                    ],
-                ),
-            )
-        )
-
-    controles_tarjeta.append(
+    controles_tarjeta: list[ft.Control] = [
+        fila_encabezado,
+        *_crear_bloques_platos(pedido, tamano_item=15, tamano_detalle=13),
         ft.Row(
-            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-            vertical_alignment=ft.CrossAxisAlignment.CENTER,
-            controls=controles_acciones,
-        )
-    )
-
-    color_borde = (
-        colors.AMBER_700
-        if fue_modificado and es_pendiente
-        else (colors.ORANGE_400 if es_pendiente else colors.GREEN_300)
-    )
+            alignment=ft.MainAxisAlignment.END,
+            controls=[
+                ft.ElevatedButton(
+                    text="Editar pedido",
+                    icon=icons.EDIT,
+                    bgcolor=colors.BLUE_700,
+                    color=colors.WHITE,
+                    height=38,
+                    style=ft.ButtonStyle(
+                        shape=ft.RoundedRectangleBorder(radius=10),
+                    ),
+                    on_click=lambda _e, pid=pedido_id: on_editar(pid),
+                ),
+            ],
+        ),
+    ]
 
     return ft.Container(
         data=pedido_id,
@@ -284,12 +339,12 @@ def crear_tarjeta_pedido_cocina(
         padding=ft.padding.all(14),
         margin=ft.margin.symmetric(vertical=6, horizontal=2),
         border_radius=14,
-        border=ft.border.all(2, color_borde),
+        border=ft.border.all(1.5, colors.BLUE_GREY_200),
         shadow=ft.BoxShadow(
             spread_radius=1,
-            blur_radius=6,
-            color=with_opacity(0.12, colors.BLACK),
-            offset=ft.Offset(0, 3),
+            blur_radius=5,
+            color=with_opacity(0.10, colors.BLACK),
+            offset=ft.Offset(0, 2),
         ),
         content=ft.Column(spacing=10, controls=controles_tarjeta),
     )
