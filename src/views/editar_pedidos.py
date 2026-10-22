@@ -27,7 +27,7 @@ def view_editar_pedidos(page: ft.Page) -> ft.View:
     }
 
     fila_filtros = ft.Row(spacing=10, alignment=ft.MainAxisAlignment.CENTER)
-    lista_tarjetas = ft.Column(spacing=10)
+    lista_tarjetas = ft.ResponsiveRow(spacing=12, run_spacing=12)
 
     def cargar_datos_bd() -> None:
         try:

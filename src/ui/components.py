@@ -12,7 +12,7 @@ from ui.theme import (
 )
 
 if TYPE_CHECKING:
-    from domain.modelos import Pedido
+    from domain.modelos import Item, Pedido, Plato
 
 RUTAS_NAVEGACION = {
     0: "/home",
@@ -72,19 +72,19 @@ def _crear_insignia_servicio(es_mesa: bool) -> ft.Container:
     return ft.Container(
         bgcolor=colors.BLUE_700 if es_mesa else colors.DEEP_ORANGE_700,
         border_radius=8,
-        padding=ft.padding.symmetric(horizontal=10, vertical=5),
+        padding=ft.padding.symmetric(horizontal=10, vertical=4),
         content=ft.Row(
             spacing=5,
             tight=True,
             controls=[
                 ft.Icon(
                     icons.RESTAURANT if es_mesa else icons.SHOPPING_BAG,
-                    size=15,
+                    size=14,
                     color=colors.WHITE,
                 ),
                 ft.Text(
                     "MESA" if es_mesa else "PARA LLEVAR",
-                    size=13,
+                    size=12,
                     weight=ft.FontWeight.BOLD,
                     color=colors.WHITE,
                 ),
@@ -93,71 +93,160 @@ def _crear_insignia_servicio(es_mesa: bool) -> ft.Container:
     )
 
 
-def _crear_bloques_platos(pedido: "Pedido", tamano_item: int = 17, tamano_detalle: int = 14) -> list[ft.Control]:
-    """Construye los bloques visuales de cada plato con letra grande y legible."""
-    bloques: list[ft.Control] = []
-    for plato in pedido.platos:
-        if plato.esta_vacio:
-            continue
+def _crear_fila_item_compacta(item: "Item", tamano_fuente: int = 16) -> ft.Container:
+    """
+    Renderiza un platillo con un badge de cantidad (`2×`), su nombre y etiquetas
+    compactas para sus modificadores (`+ Queso`, `sin Cebolla`) sin desperdiciar espacio.
+    """
+    from domain.modelos import TipoModificador
 
-        lineas_plato: list[ft.Control] = [
+    chips_modificadores: list[ft.Control] = []
+    for mod in item.modificadores:
+        es_extra = mod.tipo == TipoModificador.EXTRA
+        chips_modificadores.append(
             ft.Container(
-                bgcolor=colors.ORANGE_100,
+                bgcolor=colors.RED_50 if not es_extra else colors.AMBER_100,
+                border=ft.border.all(
+                    1,
+                    colors.RED_400 if not es_extra else colors.AMBER_700,
+                ),
                 border_radius=6,
-                padding=ft.padding.symmetric(horizontal=10, vertical=4),
-                content=ft.Row(
-                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                    controls=[
-                        ft.Text(
-                            f"Plato {plato.numero}",
-                            size=14,
-                            weight=ft.FontWeight.BOLD,
-                            color=colors.DEEP_ORANGE_900,
-                        ),
-                        ft.Text(
-                            f"{plato.total_piezas} pzs",
-                            size=13,
-                            weight=ft.FontWeight.BOLD,
-                            color=colors.DEEP_ORANGE_900,
-                        ),
-                    ],
+                padding=ft.padding.symmetric(horizontal=6, vertical=2),
+                content=ft.Text(
+                    mod.formatear(),
+                    size=12,
+                    weight=ft.FontWeight.BOLD,
+                    color=colors.RED_900 if not es_extra else colors.DEEP_ORANGE_900,
                 ),
             )
-        ]
+        )
 
-        for item in plato.items:
-            detalle = item.formatear_detalle()
-            controles_item: list[ft.Control] = [
-                ft.Text(
-                    f"• {item.formatear_titulo()}",
-                    size=tamano_item,
-                    weight=ft.FontWeight.BOLD,
-                    color=colors.BLACK87,
-                )
-            ]
-            if detalle:
-                controles_item.append(
-                    ft.Container(
-                        padding=ft.padding.only(left=16),
-                        content=ft.Text(
-                            detalle,
-                            size=tamano_detalle,
-                            weight=ft.FontWeight.BOLD,
-                            color=colors.RED_800,
-                        ),
-                    )
-                )
-            lineas_plato.append(ft.Column(spacing=2, controls=controles_item))
-
-        bloques.append(
+    if item.nota:
+        chips_modificadores.append(
             ft.Container(
-                bgcolor=colors.BLUE_GREY_50,
-                border_radius=10,
-                padding=ft.padding.all(10),
-                content=ft.Column(spacing=6, controls=lineas_plato),
+                bgcolor=colors.BLUE_50,
+                border=ft.border.all(1, colors.BLUE_400),
+                border_radius=6,
+                padding=ft.padding.symmetric(horizontal=6, vertical=2),
+                content=ft.Text(
+                    f"Nota: {item.nota}",
+                    size=12,
+                    weight=ft.FontWeight.BOLD,
+                    color=colors.BLUE_900,
+                ),
             )
         )
-    return bloques
+
+    fila_principal = ft.Row(
+        spacing=8,
+        vertical_alignment=ft.CrossAxisAlignment.CENTER,
+        controls=[
+            ft.Container(
+                bgcolor=colors.ORANGE_700 if item.cantidad > 1 else colors.BLUE_GREY_700,
+                border_radius=6,
+                padding=ft.padding.symmetric(horizontal=7, vertical=2),
+                content=ft.Text(
+                    f"{item.cantidad}×",
+                    size=14,
+                    weight=ft.FontWeight.BOLD,
+                    color=colors.WHITE,
+                ),
+            ),
+            ft.Text(
+                f"{item.producto} {item.guiso}",
+                size=tamano_fuente,
+                weight=ft.FontWeight.BOLD,
+                color=colors.BLACK87,
+                expand=True,
+            ),
+        ],
+    )
+
+    if not chips_modificadores:
+        return ft.Container(
+            padding=ft.padding.symmetric(vertical=2),
+            content=fila_principal,
+        )
+
+    return ft.Container(
+        padding=ft.padding.symmetric(vertical=2),
+        content=ft.Column(
+            spacing=4,
+            controls=[
+                fila_principal,
+                ft.Container(
+                    padding=ft.padding.only(left=34),
+                    content=ft.Row(
+                        wrap=True,
+                        spacing=5,
+                        run_spacing=4,
+                        controls=chips_modificadores,
+                    ),
+                ),
+            ],
+        ),
+    )
+
+
+def _crear_grilla_platos(
+    pedido: "Pedido",
+    tamano_item: int = 16,
+) -> ft.ResponsiveRow:
+    """
+    Organiza los platos del pedido en una cuadrícula responsiva:
+    - Si el pedido tiene 1 solo plato: ocupa todo el ancho de la tarjeta (12 cols).
+    - Si el pedido tiene 2 o más platos: en pantallas medianas/grandes se colocan
+      lado a lado (6 cols cada uno) para aprovechar el espacio horizontal.
+    """
+    platos_activos: list[Plato] = [p for p in pedido.platos if not p.esta_vacio]
+    tiene_varios_platos = len(platos_activos) > 1
+    col_plato = {"xs": 12, "md": 6} if tiene_varios_platos else {"xs": 12}
+
+    controles_platos: list[ft.Control] = []
+    for plato in platos_activos:
+        filas_items = [
+            _crear_fila_item_compacta(item, tamano_fuente=tamano_item)
+            for item in plato.items
+        ]
+
+        encabezado_plato = ft.Container(
+            bgcolor=colors.ORANGE_100,
+            border_radius=6,
+            padding=ft.padding.symmetric(horizontal=8, vertical=3),
+            content=ft.Row(
+                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                controls=[
+                    ft.Text(
+                        f"Plato {plato.numero}",
+                        size=13,
+                        weight=ft.FontWeight.BOLD,
+                        color=colors.DEEP_ORANGE_900,
+                    ),
+                    ft.Text(
+                        f"{plato.total_piezas} pzs",
+                        size=12,
+                        weight=ft.FontWeight.BOLD,
+                        color=colors.DEEP_ORANGE_900,
+                    ),
+                ],
+            ),
+        )
+
+        controles_platos.append(
+            ft.Container(
+                col=col_plato,
+                bgcolor=colors.BLUE_GREY_50,
+                border_radius=8,
+                border=ft.border.all(1, colors.BLUE_GREY_100),
+                padding=ft.padding.all(8),
+                content=ft.Column(
+                    spacing=5,
+                    controls=[encabezado_plato, *filas_items],
+                ),
+            )
+        )
+
+    return ft.ResponsiveRow(spacing=8, run_spacing=8, controls=controles_platos)
 
 
 def crear_tarjeta_pedido_cocina(
@@ -165,27 +254,36 @@ def crear_tarjeta_pedido_cocina(
     on_completar: Callable[[int], None],
 ) -> ft.Container:
     """
-    Tarjeta limpia y de alta legibilidad exclusiva para el monitor de cocina (`/home`).
-    Sin botón de editar ni distracciones: solo número de orden, Mesa/Llevar, platos
-    con letra grande y botón de Listo.
+    Tarjeta compacta y multi-columna para el monitor de cocina (`/home`).
+    En monitores grandes se acomodan hasta 3 o 4 pedidos por fila para aprovechar
+    toda la pantalla sin dejar espacio vacío.
     """
     from domain.modelos import TipoServicio
 
     pedido_id = pedido.id or 0
     es_mesa = pedido.tipo_servicio == TipoServicio.MESA
     fue_modificado = pedido.version > 1
+    platos_no_vacios = [p for p in pedido.platos if not p.esta_vacio]
+    tiene_varios_platos = len(platos_no_vacios) > 1
+
+    # Si el pedido tiene varios platos, le damos el doble de ancho en monitor para mostrarlos lado a lado
+    columnas_responsivas = (
+        {"xs": 12, "sm": 12, "md": 8, "lg": 6}
+        if tiene_varios_platos
+        else {"xs": 12, "sm": 6, "md": 4, "lg": 3}
+    )
 
     fila_encabezado = ft.Row(
         alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
         vertical_alignment=ft.CrossAxisAlignment.CENTER,
         controls=[
             ft.Row(
-                spacing=8,
+                spacing=6,
                 vertical_alignment=ft.CrossAxisAlignment.CENTER,
                 controls=[
                     ft.Text(
                         f"#{pedido_id}",
-                        size=22,
+                        size=20,
                         weight=ft.FontWeight.BOLD,
                         color=colors.BLACK87,
                     ),
@@ -197,9 +295,10 @@ def crear_tarjeta_pedido_cocina(
                 icon=icons.CHECK_CIRCLE,
                 bgcolor=colors.GREEN_700,
                 color=colors.WHITE,
-                height=38,
+                height=36,
                 style=ft.ButtonStyle(
-                    shape=ft.RoundedRectangleBorder(radius=10),
+                    shape=ft.RoundedRectangleBorder(radius=8),
+                    padding=ft.padding.symmetric(horizontal=10, vertical=4),
                 ),
                 on_click=lambda _e, pid=pedido_id: on_completar(pid),
             ),
@@ -214,15 +313,15 @@ def crear_tarjeta_pedido_cocina(
                 bgcolor=colors.AMBER_300,
                 border=ft.border.all(1, colors.AMBER_800),
                 border_radius=6,
-                padding=ft.padding.symmetric(horizontal=8, vertical=4),
+                padding=ft.padding.symmetric(horizontal=8, vertical=3),
                 content=ft.Row(
                     spacing=5,
                     tight=True,
                     controls=[
-                        ft.Icon(icons.AUTORENEW, size=15, color=colors.BLACK87),
+                        ft.Icon(icons.AUTORENEW, size=14, color=colors.BLACK87),
                         ft.Text(
                             "PEDIDO MODIFICADO",
-                            size=12,
+                            size=11,
                             weight=ft.FontWeight.BOLD,
                             color=colors.BLACK87,
                         ),
@@ -231,22 +330,22 @@ def crear_tarjeta_pedido_cocina(
             )
         )
 
-    controles_tarjeta.extend(_crear_bloques_platos(pedido, tamano_item=17, tamano_detalle=14))
+    controles_tarjeta.append(_crear_grilla_platos(pedido, tamano_item=15))
 
     return ft.Container(
+        col=columnas_responsivas,
         data=pedido_id,
         bgcolor=colors.WHITE,
-        padding=ft.padding.all(14),
-        margin=ft.margin.symmetric(vertical=6, horizontal=2),
-        border_radius=14,
+        padding=ft.padding.all(12),
+        border_radius=12,
         border=ft.border.all(2, colors.AMBER_700 if fue_modificado else colors.ORANGE_400),
         shadow=ft.BoxShadow(
             spread_radius=1,
-            blur_radius=6,
-            color=with_opacity(0.12, colors.BLACK),
-            offset=ft.Offset(0, 3),
+            blur_radius=5,
+            color=with_opacity(0.10, colors.BLACK),
+            offset=ft.Offset(0, 2),
         ),
-        content=ft.Column(spacing=10, controls=controles_tarjeta),
+        content=ft.Column(spacing=8, controls=controles_tarjeta),
     )
 
 
@@ -255,15 +354,21 @@ def crear_tarjeta_pedido_mesero(
     on_editar: Callable[[int], None],
 ) -> ft.Container:
     """
-    Tarjeta para la sección 'Editar Pedidos' (`/editar-pedidos`) de los meseros.
-    Muestra el detalle del pedido, su estado ('En cocina' o 'Completado'), hora
-    y el botón para editarlo.
+    Tarjeta responsiva para la sección 'Editar Pedidos' (`/editar-pedidos`) de los meseros.
     """
     from domain.modelos import EstadoPedido, TipoServicio
 
     pedido_id = pedido.id or 0
     es_mesa = pedido.tipo_servicio == TipoServicio.MESA
     es_pendiente = pedido.estado == EstadoPedido.PENDIENTE
+    platos_no_vacios = [p for p in pedido.platos if not p.esta_vacio]
+    tiene_varios_platos = len(platos_no_vacios) > 1
+
+    columnas_responsivas = (
+        {"xs": 12, "sm": 12, "md": 8, "lg": 6}
+        if tiene_varios_platos
+        else {"xs": 12, "sm": 6, "md": 4, "lg": 3}
+    )
 
     marca_tiempo = pedido.updated_at or pedido.created_at
     hora_str = marca_tiempo.strftime("%H:%M") if marca_tiempo else ""
@@ -285,11 +390,11 @@ def crear_tarjeta_pedido_mesero(
         vertical_alignment=ft.CrossAxisAlignment.CENTER,
         controls=[
             ft.Row(
-                spacing=8,
+                spacing=6,
                 vertical_alignment=ft.CrossAxisAlignment.CENTER,
                 controls=[
                     ft.Text(
-                        f"Pedido #{pedido_id}",
+                        f"#{pedido_id}",
                         size=18,
                         weight=ft.FontWeight.BOLD,
                         color=colors.BLACK87,
@@ -314,7 +419,7 @@ def crear_tarjeta_pedido_mesero(
 
     controles_tarjeta: list[ft.Control] = [
         fila_encabezado,
-        *_crear_bloques_platos(pedido, tamano_item=15, tamano_detalle=13),
+        _crear_grilla_platos(pedido, tamano_item=14),
         ft.Row(
             alignment=ft.MainAxisAlignment.END,
             controls=[
@@ -323,9 +428,9 @@ def crear_tarjeta_pedido_mesero(
                     icon=icons.EDIT,
                     bgcolor=colors.BLUE_700,
                     color=colors.WHITE,
-                    height=38,
+                    height=36,
                     style=ft.ButtonStyle(
-                        shape=ft.RoundedRectangleBorder(radius=10),
+                        shape=ft.RoundedRectangleBorder(radius=8),
                     ),
                     on_click=lambda _e, pid=pedido_id: on_editar(pid),
                 ),
@@ -334,11 +439,11 @@ def crear_tarjeta_pedido_mesero(
     ]
 
     return ft.Container(
+        col=columnas_responsivas,
         data=pedido_id,
         bgcolor=colors.WHITE,
-        padding=ft.padding.all(14),
-        margin=ft.margin.symmetric(vertical=6, horizontal=2),
-        border_radius=14,
+        padding=ft.padding.all(12),
+        border_radius=12,
         border=ft.border.all(1.5, colors.BLUE_GREY_200),
         shadow=ft.BoxShadow(
             spread_radius=1,
@@ -346,5 +451,5 @@ def crear_tarjeta_pedido_mesero(
             color=with_opacity(0.10, colors.BLACK),
             offset=ft.Offset(0, 2),
         ),
-        content=ft.Column(spacing=10, controls=controles_tarjeta),
+        content=ft.Column(spacing=8, controls=controles_tarjeta),
     )

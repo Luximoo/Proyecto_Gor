@@ -49,7 +49,7 @@ def view_home(page: ft.Page) -> ft.View:
         weight=ft.FontWeight.BOLD,
         color=colors.BLACK87,
     )
-    lista_tarjetas = ft.Column(spacing=10)
+    lista_tarjetas = ft.ResponsiveRow(spacing=12, run_spacing=12)
 
     def _calcular_huella(pedidos: list[Pedido]) -> tuple[tuple[int, int], ...]:
         return tuple((int(p.id or 0), int(p.version)) for p in pedidos)
