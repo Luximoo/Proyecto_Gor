@@ -1,4 +1,6 @@
-"""Vista del monitor de cocina (`/home`): muestra pedidos activos en tiempo real."""
+"""Vista exclusiva para Cocina (`/home`): visualización limpia de pedidos pendientes."""
+
+from __future__ import annotations
 
 import logging
 import threading
@@ -7,8 +9,12 @@ import flet as ft
 import mysql.connector
 
 from config import ERROR_RETRY_SECONDS, POLL_INTERVAL_SECONDS
-from data.db import completar_pedido, obtener_pedidos_activos
-from ui.components import crear_navegacion, create_info_card
+from data.repositorio import (
+    marcar_pedido_completado,
+    obtener_pedidos_pendientes,
+)
+from domain.modelos import Pedido
+from ui.components import crear_navegacion, crear_tarjeta_pedido_cocina
 from ui.theme import COLOR_FONDO_PAGINA, colors, icons
 
 logging.basicConfig(
@@ -19,10 +25,11 @@ logging.basicConfig(
 
 def view_home(page: ft.Page) -> ft.View:
     """
-    Construye la vista `/home` y gestiona un único hilo de sondeo para la página.
-    Si existía un hilo previo de una visita anterior a `/home`, lo detiene limpiamente.
+    Construye el monitor limpio de cocina (`/home`):
+    - Muestra únicamente los pedidos pendientes por preparar.
+    - Sin botones de edición ni pestañas extra para no distraer a los cocineros.
+    - Letra grande y clara para leer de un vistazo mientras cocinan.
     """
-    # Detener cualquier hilo de sondeo anterior asociado a esta página
     evento_anterior: threading.Event | None = getattr(page, "_home_stop_event", None)
     if evento_anterior is not None:
         evento_anterior.set()
@@ -31,138 +38,116 @@ def view_home(page: ft.Page) -> ft.View:
     setattr(page, "_home_stop_event", stop_event)
 
     ui_lock = threading.Lock()
-    displayed_order_ids: set[int] = set()
-    lista_cartas = ft.ResponsiveRow()
+    estado_cocina = {
+        "pendientes": [],
+        "huella_pendientes": (),
+    }
 
-    texto_esperando = ft.Row(
-        controls=[
-            ft.Icon(
-                icons.HOURGLASS_EMPTY_ROUNDED,
-                size=30,
-                color=colors.BLUE_ACCENT_700,
-            ),
-            ft.Text("Esperando pedidos...", size=22, weight=ft.FontWeight.BOLD),
-        ],
-        alignment=ft.MainAxisAlignment.CENTER,
-        visible=True,
+    titulo_contador = ft.Text(
+        "Pedidos en Cocina",
+        size=20,
+        weight=ft.FontWeight.BOLD,
+        color=colors.BLACK87,
     )
+    lista_tarjetas = ft.ResponsiveRow(spacing=12, run_spacing=12)
 
-    def _actualizar_visibilidad_espera() -> None:
-        """Muestra el indicador 'Esperando pedidos...' solo cuando no hay tarjetas activas."""
-        texto_esperando.visible = len(displayed_order_ids) == 0
+    def _calcular_huella(pedidos: list[Pedido]) -> tuple[tuple[int, int], ...]:
+        return tuple((int(p.id or 0), int(p.version)) for p in pedidos)
 
-    def _completar_y_eliminar_tarjeta(order_id_to_delete: int) -> None:
-        """Marca el pedido como completado en BD y retira su tarjeta de la UI de inmediato."""
-        logging.info(f"Intentando marcar como completado el pedido ID: {order_id_to_delete}")
+    def _completar_pedido_accion(pedido_id: int) -> None:
+        """Marca el pedido como listo y lo retira inmediatamente de la pantalla de cocina."""
+        logging.info(f"Completando pedido #{pedido_id} desde cocina...")
         try:
-            completar_pedido(order_id_to_delete)
-
+            marcar_pedido_completado(pedido_id)
+            pendientes = obtener_pedidos_pendientes()
             with ui_lock:
-                tarjeta_a_quitar = next(
-                    (
-                        card
-                        for card in lista_cartas.controls
-                        if getattr(card, "data", None) == order_id_to_delete
-                    ),
-                    None,
-                )
-                if tarjeta_a_quitar is not None:
-                    lista_cartas.controls.remove(tarjeta_a_quitar)
-                    displayed_order_ids.discard(order_id_to_delete)
-                    _actualizar_visibilidad_espera()
-                    logging.info(
-                        f"Tarjeta para pedido ID: {order_id_to_delete} eliminada de la UI inmediatamente."
-                    )
-                    if page:
-                        page.update()
-                else:
-                    logging.warning(
-                        f"No se encontró la tarjeta con ID {order_id_to_delete} para eliminarla inmediatamente."
-                    )
-
+                estado_cocina["pendientes"] = pendientes
+                estado_cocina["huella_pendientes"] = _calcular_huella(pendientes)
+                _renderizar_en_lock()
+            if page:
+                page.update()
         except mysql.connector.Error as err:
-            logging.error(
-                f"Error de base de datos al actualizar pedido {order_id_to_delete}: {err}"
-            )
+            logging.error(f"Error de base de datos al completar pedido #{pedido_id}: {err}")
         except Exception as err:
-            logging.error(
-                f"Error inesperado al procesar eliminación de pedido {order_id_to_delete}: {err}"
-            )
+            logging.error(f"Error inesperado al completar pedido #{pedido_id}: {err}")
 
-    def _sincronizar_tarjetas(pedidos_activos: dict[int, str]) -> bool:
-        """
-        Sincroniza los controles de `lista_cartas` con los pedidos activos en BD.
-        Retorna True si hubo cambios que requieren `page.update()`.
-        """
-        ids_activos_db = set(pedidos_activos.keys())
-        hubo_cambios = False
+    def _renderizar_en_lock() -> None:
+        pendientes: list[Pedido] = estado_cocina["pendientes"]
+        total = len(pendientes)
+        titulo_contador.value = (
+            f"Pedidos en Cocina ({total})" if total > 0 else "Pedidos en Cocina"
+        )
+
+        if not pendientes:
+            lista_tarjetas.controls = [
+                ft.Container(
+                    padding=ft.padding.symmetric(vertical=50, horizontal=20),
+                    alignment=ft.alignment.center,
+                    content=ft.Column(
+                        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                        spacing=10,
+                        controls=[
+                            ft.Icon(
+                                icons.HOURGLASS_EMPTY_ROUNDED,
+                                size=44,
+                                color=colors.BLUE_ACCENT_700,
+                            ),
+                            ft.Text(
+                                "Esperando pedidos...",
+                                size=19,
+                                weight=ft.FontWeight.BOLD,
+                                color=colors.BLACK54,
+                                text_align=ft.TextAlign.CENTER,
+                            ),
+                        ],
+                    ),
+                )
+            ]
+            return
+
+        lista_tarjetas.controls = [
+            crear_tarjeta_pedido_cocina(
+                pedido=ped,
+                on_completar=_completar_pedido_accion,
+                posicion_cola=idx,
+            )
+            for idx, ped in enumerate(pendientes, start=1)
+        ]
+
+    def _sincronizar_desde_bd(forzar_render: bool = False) -> bool:
+        pendientes = obtener_pedidos_pendientes()
+        nueva_huella = _calcular_huella(pendientes)
 
         with ui_lock:
-            # 1. Añadir nuevos pedidos que aún no están en pantalla
-            ids_por_agregar = sorted(ids_activos_db - displayed_order_ids)
-            if ids_por_agregar:
-                logging.info(f"Nuevos pedidos para añadir a la UI: {ids_por_agregar}")
-                for order_id in ids_por_agregar:
-                    lineas_pedido = pedidos_activos[order_id].strip().split("\n")
-                    nueva_tarjeta = create_info_card(
-                        order_id=order_id,
-                        title=f"Numero de orden {order_id}",
-                        description="\n".join(lineas_pedido),
-                        on_complete_callback=_completar_y_eliminar_tarjeta,
-                    )
-                    lista_cartas.controls.append(nueva_tarjeta)
-                    displayed_order_ids.add(order_id)
-                    hubo_cambios = True
-                    logging.info(f"Tarjeta para pedido ID: {order_id} añadida a la UI.")
-
-            # 2. Quitar pedidos que ya fueron completados (p. ej. desde otra ventana)
-            ids_por_quitar = displayed_order_ids - ids_activos_db
-            if ids_por_quitar:
-                logging.info(f"Pedidos ya no activos, eliminar de la UI: {ids_por_quitar}")
-                controles_a_quitar = [
-                    control
-                    for control in lista_cartas.controls
-                    if getattr(control, "data", None) in ids_por_quitar
-                ]
-                for control in controles_a_quitar:
-                    control_id = getattr(control, "data", None)
-                    lista_cartas.controls.remove(control)
-                    displayed_order_ids.discard(control_id)
-                    hubo_cambios = True
-                    logging.info(f"Tarjeta para pedido ID: {control_id} eliminada de la UI.")
-
+            hubo_cambios = (
+                forzar_render or nueva_huella != estado_cocina["huella_pendientes"]
+            )
             if hubo_cambios:
-                _actualizar_visibilidad_espera()
-
-        return hubo_cambios
+                estado_cocina["pendientes"] = pendientes
+                estado_cocina["huella_pendientes"] = nueva_huella
+                _renderizar_en_lock()
+            return hubo_cambios
 
     def _tarea_actualizacion() -> None:
-        """Hilo en segundo plano que consulta periódicamente la BD mientras `/home` esté activo."""
-        logging.info("Hilo de actualización de pedidos iniciado.")
+        logging.info("Hilo del monitor de cocina iniciado.")
         while not stop_event.is_set():
             if not page or page.route != "/home":
-                logging.info("Saliendo de /home, deteniendo hilo de actualización.")
                 break
 
             try:
-                pedidos_activos = obtener_pedidos_activos()
-                if _sincronizar_tarjetas(pedidos_activos) and page and not stop_event.is_set():
+                if _sincronizar_desde_bd() and page and not stop_event.is_set():
                     try:
                         page.update()
                     except Exception as update_err:
                         logging.error(f"Error durante page.update(): {update_err}")
                         break
-
             except mysql.connector.Error as err:
-                logging.error(f"Error de base de datos en el hilo de actualización: {err}")
+                logging.error(f"Error de base de datos en cocina: {err}")
                 if stop_event.wait(ERROR_RETRY_SECONDS):
                     break
                 continue
             except Exception as err:
-                logging.error(
-                    f"Error inesperado en el hilo de actualización: {err}",
-                    exc_info=True,
-                )
+                logging.error(f"Error inesperado en cocina: {err}", exc_info=True)
                 if stop_event.wait(ERROR_RETRY_SECONDS):
                     break
                 continue
@@ -170,7 +155,14 @@ def view_home(page: ft.Page) -> ft.View:
             if stop_event.wait(POLL_INTERVAL_SECONDS):
                 break
 
-        logging.info("Hilo de actualización detenido limpiamente.")
+        logging.info("Hilo del monitor de cocina detenido limpiamente.")
+
+    try:
+        _sincronizar_desde_bd(forzar_render=True)
+    except Exception as err:
+        logging.warning(f"No se pudo realizar la carga inicial de cocina: {err}")
+        with ui_lock:
+            _renderizar_en_lock()
 
     navegacion = crear_navegacion(page, selected_index=0)
 
@@ -180,17 +172,17 @@ def view_home(page: ft.Page) -> ft.View:
     return ft.View(
         route="/home",
         controls=[
-            lista_cartas,
-            texto_esperando,
+            titulo_contador,
+            lista_tarjetas,
             navegacion,
         ],
         scroll=ft.ScrollMode.AUTO,
         vertical_alignment=ft.MainAxisAlignment.START,
-        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-        padding=20,
+        horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
+        padding=14,
         bgcolor=COLOR_FONDO_PAGINA,
     )
 
 
-# Alias de compatibilidad hacia atrás
+# Alias de compatibilidad
 View_home = view_home
