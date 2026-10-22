@@ -30,6 +30,8 @@ from ui.theme import (
     COLOR_ETIQUETA_SOPE,
     COLOR_FONDO_PAGINA,
     COLOR_SOMBRA_BOTON,
+    colors,
+    icons,
 )
 
 SEPARADOR_RESUMEN = "-----------------------------------"
@@ -142,9 +144,9 @@ class SeccionPlatillo:
             controles_tile.extend([fila, btn_opciones])
 
         return ft.ExpansionTile(
-            title=create_custom_tile_header(self.titulo_seccion, ft.icons.FASTFOOD),
-            bgcolor=ft.colors.TRANSPARENT,
-            collapsed_bgcolor=ft.colors.TRANSPARENT,
+            title=create_custom_tile_header(self.titulo_seccion, icons.FASTFOOD),
+            bgcolor=colors.TRANSPARENT,
+            collapsed_bgcolor=colors.TRANSPARENT,
             tile_padding=ft.padding.all(0),
             maintain_state=True,
             controls=controles_tile,

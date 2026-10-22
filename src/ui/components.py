@@ -18,6 +18,9 @@ from ui.theme import (
     GRADIENTE_ELIMINAR,
     GRADIENTE_PRIMARIO,
     GRADIENTE_REALIZAR,
+    colors,
+    icons,
+    with_opacity,
 )
 
 RUTAS_NAVEGACION = {
@@ -41,8 +44,8 @@ def crear_navegacion(page: ft.Page, selected_index: int | None = None) -> ft.Nav
     return ft.NavigationBar(
         selected_index=selected_index,
         destinations=[
-            ft.NavigationBarDestination(icon=ft.icons.LIST_ALT, label="Ver Pedidos"),
-            ft.NavigationBarDestination(icon=ft.icons.ADD_SHOPPING_CART, label="Ordenar"),
+            ft.NavigationBarDestination(icon=icons.LIST_ALT, label="Ver Pedidos"),
+            ft.NavigationBarDestination(icon=icons.ADD_SHOPPING_CART, label="Ordenar"),
         ],
         on_change=lambda e: _cambiar_vista(page, e),
     )
@@ -69,7 +72,7 @@ def create_info_card(
         shadow=ft.BoxShadow(
             spread_radius=1,
             blur_radius=10,
-            color=ft.colors.with_opacity(0.2, ft.colors.BLACK),
+            color=with_opacity(0.2, colors.BLACK),
             offset=ft.Offset(5, 5),
         ),
         content=ft.ResponsiveRow(
@@ -81,7 +84,7 @@ def create_info_card(
                     spacing=10,
                     controls=[
                         ft.Icon(
-                            ft.icons.RESTAURANT,
+                            icons.RESTAURANT,
                             size=40,
                             color=COLOR_ICONO_PRINCIPAL,
                         ),
@@ -133,8 +136,8 @@ def create_info_card(
                 # Sección Derecha (Botón de completar pedido)
                 ft.Container(
                     content=ft.Icon(
-                        ft.icons.CHEVRON_RIGHT_ROUNDED,
-                        color=ft.colors.WHITE,
+                        icons.CHEVRON_RIGHT_ROUNDED,
+                        color=colors.WHITE,
                         size=24,
                     ),
                     width=45,
@@ -153,9 +156,10 @@ def create_info_card(
 
 def create_custom_tile_header(
     title_text: str,
-    icon_name: str = ft.icons.FASTFOOD,
+    icon_name: str | None = None,
 ) -> ft.Container:
     """Crea el encabezado con gradiente para los bloques desplegables (ExpansionTile)."""
+    icono = icon_name or icons.FASTFOOD
     return ft.Container(
         padding=ft.padding.symmetric(horizontal=16, vertical=12),
         border_radius=ft.border_radius.all(10),
@@ -172,7 +176,7 @@ def create_custom_tile_header(
                 ft.Row(
                     spacing=6,
                     controls=[
-                        ft.Icon(icon_name, size=26, color=COLOR_ICONO_PRINCIPAL),
+                        ft.Icon(icono, size=26, color=COLOR_ICONO_PRINCIPAL),
                         ft.Column(
                             spacing=3,
                             alignment=ft.MainAxisAlignment.CENTER,
@@ -315,12 +319,12 @@ def crear_fila_guiso(
         padding=ft.padding.symmetric(horizontal=15, vertical=10),
         bgcolor=color_etiqueta,
         border_radius=10,
-        shadow=ft.BoxShadow(blur_radius=10, color=ft.colors.BLACK12),
+        shadow=ft.BoxShadow(blur_radius=10, color=colors.BLACK12),
         expand=expandir,
     )
 
     btn_restar = ft.IconButton(
-        ft.Icons.REMOVE,
+        icons.REMOVE,
         on_click=on_restar,
         icon_size=20,
         icon_color="white",
@@ -329,7 +333,7 @@ def crear_fila_guiso(
     )
 
     btn_sumar = ft.IconButton(
-        ft.Icons.ADD,
+        icons.ADD,
         on_click=on_sumar,
         icon_size=20,
         icon_color="white",

@@ -9,7 +9,7 @@ import mysql.connector
 from config import ERROR_RETRY_SECONDS, POLL_INTERVAL_SECONDS
 from data.db import completar_pedido, obtener_pedidos_activos
 from ui.components import crear_navegacion, create_info_card
-from ui.theme import COLOR_FONDO_PAGINA
+from ui.theme import COLOR_FONDO_PAGINA, colors, icons
 
 logging.basicConfig(
     level=logging.INFO,
@@ -37,9 +37,9 @@ def view_home(page: ft.Page) -> ft.View:
     texto_esperando = ft.Row(
         controls=[
             ft.Icon(
-                ft.icons.HOURGLASS_EMPTY_ROUNDED,
+                icons.HOURGLASS_EMPTY_ROUNDED,
                 size=30,
-                color=ft.colors.BLUE_ACCENT_700,
+                color=colors.BLUE_ACCENT_700,
             ),
             ft.Text("Esperando pedidos...", size=22, weight=ft.FontWeight.BOLD),
         ],
