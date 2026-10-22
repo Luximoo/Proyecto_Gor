@@ -35,6 +35,29 @@ class ErrorConcurrenciaPedido(ErrorRepositorio):
     """Se lanza cuando la versión del pedido en BD cambió antes de guardar una edición."""
 
 
+_COLUMNA_PRIORIDAD_VERIFICADA = False
+
+
+def _asegurar_columna_orden_prioridad(cursor: MySQLCursor) -> None:
+    """
+    Verifica una vez por ejecución que la tabla `pedidos` tenga la columna `orden_prioridad`.
+    Si aún no existe en la BD actual, la agrega automáticamente sin perder datos.
+    """
+    global _COLUMNA_PRIORIDAD_VERIFICADA
+    if _COLUMNA_PRIORIDAD_VERIFICADA:
+        return
+
+    cursor.execute("SHOW COLUMNS FROM pedidos LIKE 'orden_prioridad'")
+    if cursor.fetchone() is None:
+        logging.info("Agregando columna `orden_prioridad` a la tabla `pedidos`...")
+        cursor.execute(
+            "ALTER TABLE pedidos ADD COLUMN orden_prioridad INT NOT NULL DEFAULT 0 AFTER estado"
+        )
+        cursor.execute("UPDATE pedidos SET orden_prioridad = id WHERE orden_prioridad = 0")
+
+    _COLUMNA_PRIORIDAD_VERIFICADA = True
+
+
 def _asegurar_catalogo_inicial(cursor: MySQLCursor) -> None:
     """
     Si la tabla `productos` está vacía, inserta el catálogo inicial automáticamente
@@ -215,14 +238,26 @@ def guardar_pedido(pedido: Pedido, catalogo: Catalogo | None = None) -> Pedido:
     with get_connection() as conn:
         try:
             with conn.cursor() as cursor:
+                _asegurar_columna_orden_prioridad(cursor)
                 mapa_productos, mapa_ingredientes = _obtener_mapas_catalogo_ids(cursor)
 
                 cursor.execute(
+                    "SELECT COALESCE(MAX(orden_prioridad), 0) + 1 FROM pedidos WHERE estado = %s",
+                    (EstadoPedido.PENDIENTE.value,),
+                )
+                fila_max = cursor.fetchone()
+                siguiente_prioridad = int(fila_max[0]) if fila_max else 1
+
+                cursor.execute(
                     """
-                    INSERT INTO pedidos (tipo_servicio, estado, version)
-                    VALUES (%s, %s, 1)
+                    INSERT INTO pedidos (tipo_servicio, estado, orden_prioridad, version)
+                    VALUES (%s, %s, %s, 1)
                     """,
-                    (pedido.tipo_servicio.value, EstadoPedido.PENDIENTE.value),
+                    (
+                        pedido.tipo_servicio.value,
+                        EstadoPedido.PENDIENTE.value,
+                        siguiente_prioridad,
+                    ),
                 )
                 nuevo_id = int(cursor.lastrowid)
 
@@ -467,21 +502,52 @@ def actualizar_pedido(
 
 
 def obtener_pedidos_pendientes() -> list[Pedido]:
-    """Devuelve todos los pedidos en estado `PENDIENTE` ordenados por antigüedad."""
+    """
+    Devuelve todos los pedidos en estado `PENDIENTE` ordenados según la posición
+    definida por el mesero (`orden_prioridad`).
+    """
     with get_connection() as conn:
         with conn.cursor() as cursor:
+            _asegurar_columna_orden_prioridad(cursor)
+            conn.commit()
             cursor.execute(
                 """
                 SELECT id, tipo_servicio, estado, version, created_at, updated_at, completed_at
                 FROM pedidos
                 WHERE estado = %s
-                ORDER BY created_at ASC, id ASC
+                ORDER BY CASE WHEN orden_prioridad > 0 THEN orden_prioridad ELSE id END ASC,
+                         created_at ASC,
+                         id ASC
                 """,
                 (EstadoPedido.PENDIENTE.value,),
             )
             filas = cursor.fetchall()
 
         return _hidratar_pedidos_desde_cabeceras(conn, filas)
+
+
+def actualizar_orden_pedidos(ids_en_orden: list[int]) -> None:
+    """
+    Actualiza en una transacción la posición (`orden_prioridad`) de los pedidos
+    pendientes según el orden en que fueron arrastrados por el mesero.
+    """
+    if not ids_en_orden:
+        return
+
+    with get_connection() as conn:
+        try:
+            with conn.cursor() as cursor:
+                _asegurar_columna_orden_prioridad(cursor)
+                pares = [(posicion, int(pid)) for posicion, pid in enumerate(ids_en_orden, start=1)]
+                cursor.executemany(
+                    "UPDATE pedidos SET orden_prioridad = %s WHERE id = %s",
+                    pares,
+                )
+            conn.commit()
+            logging.info(f"Nuevo orden de prioridad guardado para pedidos: {ids_en_orden}")
+        except Exception:
+            conn.rollback()
+            raise
 
 
 def obtener_pedidos_completados_hoy(limite: int = 30) -> list[Pedido]:

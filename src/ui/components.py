@@ -252,6 +252,7 @@ def _crear_grilla_platos(
 def crear_tarjeta_pedido_cocina(
     pedido: "Pedido",
     on_completar: Callable[[int], None],
+    posicion_cola: int | None = None,
 ) -> ft.Container:
     """
     Tarjeta compacta y multi-columna para el monitor de cocina (`/home`).
@@ -273,6 +274,34 @@ def crear_tarjeta_pedido_cocina(
         else {"xs": 12, "sm": 6, "md": 4, "lg": 3}
     )
 
+    controles_izquierda: list[ft.Control] = []
+    if posicion_cola is not None:
+        controles_izquierda.append(
+            ft.Container(
+                bgcolor=colors.BLUE_GREY_900,
+                border_radius=6,
+                padding=ft.padding.symmetric(horizontal=7, vertical=2),
+                content=ft.Text(
+                    f"{posicion_cola}°",
+                    size=13,
+                    weight=ft.FontWeight.BOLD,
+                    color=colors.WHITE,
+                ),
+            )
+        )
+
+    controles_izquierda.extend(
+        [
+            ft.Text(
+                f"#{pedido_id}",
+                size=20,
+                weight=ft.FontWeight.BOLD,
+                color=colors.BLACK87,
+            ),
+            _crear_insignia_servicio(es_mesa),
+        ]
+    )
+
     fila_encabezado = ft.Row(
         alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
         vertical_alignment=ft.CrossAxisAlignment.CENTER,
@@ -280,15 +309,7 @@ def crear_tarjeta_pedido_cocina(
             ft.Row(
                 spacing=6,
                 vertical_alignment=ft.CrossAxisAlignment.CENTER,
-                controls=[
-                    ft.Text(
-                        f"#{pedido_id}",
-                        size=20,
-                        weight=ft.FontWeight.BOLD,
-                        color=colors.BLACK87,
-                    ),
-                    _crear_insignia_servicio(es_mesa),
-                ],
+                controls=controles_izquierda,
             ),
             ft.ElevatedButton(
                 text="Listo",
@@ -350,11 +371,18 @@ def crear_tarjeta_pedido_cocina(
 
 
 def crear_tarjeta_pedido_mesero(
+    page: ft.Page,
     pedido: "Pedido",
     on_editar: Callable[[int], None],
+    posicion_cola: int | None = None,
+    total_en_cola: int = 0,
+    on_arrastrar_a_destino: Callable[[int, int], None] | None = None,
+    on_mover_paso: Callable[[int, int], None] | None = None,
 ) -> ft.Container:
     """
     Tarjeta responsiva para la sección 'Editar Pedidos' (`/editar-pedidos`) de los meseros.
+    En los pedidos activos ('En orden'), permite reordenarlos arrastrando y soltando
+    una tarjeta sobre otra (`Draggable` + `DragTarget`) o con los botones de posición.
     """
     from domain.modelos import EstadoPedido, TipoServicio
 
@@ -385,6 +413,42 @@ def crear_tarjeta_pedido_mesero(
         ),
     )
 
+    controles_izquierda: list[ft.Control] = []
+    if es_pendiente and posicion_cola is not None:
+        controles_izquierda.extend(
+            [
+                ft.Icon(
+                    icons.DRAG_INDICATOR,
+                    size=20,
+                    color=colors.BLUE_GREY_500,
+                    tooltip="Arrastra esta tarjeta para cambiar su orden",
+                ),
+                ft.Container(
+                    bgcolor=colors.BLUE_GREY_900,
+                    border_radius=6,
+                    padding=ft.padding.symmetric(horizontal=7, vertical=2),
+                    content=ft.Text(
+                        f"{posicion_cola}°",
+                        size=12,
+                        weight=ft.FontWeight.BOLD,
+                        color=colors.WHITE,
+                    ),
+                ),
+            ]
+        )
+
+    controles_izquierda.extend(
+        [
+            ft.Text(
+                f"#{pedido_id}",
+                size=18,
+                weight=ft.FontWeight.BOLD,
+                color=colors.BLACK87,
+            ),
+            _crear_insignia_servicio(es_mesa),
+        ]
+    )
+
     fila_encabezado = ft.Row(
         alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
         vertical_alignment=ft.CrossAxisAlignment.CENTER,
@@ -392,15 +456,7 @@ def crear_tarjeta_pedido_mesero(
             ft.Row(
                 spacing=6,
                 vertical_alignment=ft.CrossAxisAlignment.CENTER,
-                controls=[
-                    ft.Text(
-                        f"#{pedido_id}",
-                        size=18,
-                        weight=ft.FontWeight.BOLD,
-                        color=colors.BLACK87,
-                    ),
-                    _crear_insignia_servicio(es_mesa),
-                ],
+                controls=controles_izquierda,
             ),
             ft.Row(
                 spacing=6,
@@ -417,30 +473,55 @@ def crear_tarjeta_pedido_mesero(
         ],
     )
 
-    controles_tarjeta: list[ft.Control] = [
-        fila_encabezado,
-        _crear_grilla_platos(pedido, tamano_item=14),
-        ft.Row(
-            alignment=ft.MainAxisAlignment.END,
-            controls=[
-                ft.ElevatedButton(
-                    text="Editar pedido",
-                    icon=icons.EDIT,
-                    bgcolor=colors.BLUE_700,
-                    color=colors.WHITE,
-                    height=36,
-                    style=ft.ButtonStyle(
-                        shape=ft.RoundedRectangleBorder(radius=8),
-                    ),
-                    on_click=lambda _e, pid=pedido_id: on_editar(pid),
+    controles_pie_izquierda: list[ft.Control] = []
+    if es_pendiente and posicion_cola is not None and on_mover_paso is not None and total_en_cola > 1:
+        controles_pie_izquierda.extend(
+            [
+                ft.IconButton(
+                    icon=icons.ARROW_BACK_ROUNDED,
+                    icon_size=16,
+                    icon_color=colors.BLUE_GREY_800,
+                    bgcolor=colors.BLUE_GREY_100,
+                    width=32,
+                    height=32,
+                    disabled=posicion_cola <= 1,
+                    tooltip="Subir prioridad (aparecer antes)",
+                    on_click=lambda _e, pid=pedido_id: on_mover_paso(pid, -1),
                 ),
-            ],
-        ),
-    ]
+                ft.IconButton(
+                    icon=icons.ARROW_FORWARD_ROUNDED,
+                    icon_size=16,
+                    icon_color=colors.BLUE_GREY_800,
+                    bgcolor=colors.BLUE_GREY_100,
+                    width=32,
+                    height=32,
+                    disabled=posicion_cola >= total_en_cola,
+                    tooltip="Bajar prioridad (aparecer después)",
+                    on_click=lambda _e, pid=pedido_id: on_mover_paso(pid, +1),
+                ),
+            ]
+        )
 
-    return ft.Container(
-        col=columnas_responsivas,
-        data=pedido_id,
+    fila_pie = ft.Row(
+        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+        vertical_alignment=ft.CrossAxisAlignment.CENTER,
+        controls=[
+            ft.Row(spacing=4, controls=controles_pie_izquierda),
+            ft.ElevatedButton(
+                text="Editar pedido",
+                icon=icons.EDIT,
+                bgcolor=colors.BLUE_700,
+                color=colors.WHITE,
+                height=36,
+                style=ft.ButtonStyle(
+                    shape=ft.RoundedRectangleBorder(radius=8),
+                ),
+                on_click=lambda _e, pid=pedido_id: on_editar(pid),
+            ),
+        ],
+    )
+
+    contenedor_visual_tarjeta = ft.Container(
         bgcolor=colors.WHITE,
         padding=ft.padding.all(12),
         border_radius=12,
@@ -451,5 +532,85 @@ def crear_tarjeta_pedido_mesero(
             color=with_opacity(0.10, colors.BLACK),
             offset=ft.Offset(0, 2),
         ),
-        content=ft.Column(spacing=8, controls=controles_tarjeta),
+        content=ft.Column(
+            spacing=8,
+            controls=[
+                fila_encabezado,
+                _crear_grilla_platos(pedido, tamano_item=14),
+                fila_pie,
+            ],
+        ),
+    )
+
+    if not es_pendiente or on_arrastrar_a_destino is None:
+        contenedor_visual_tarjeta.col = columnas_responsivas
+        contenedor_visual_tarjeta.data = pedido_id
+        return contenedor_visual_tarjeta
+
+    # Vista flotante compacta mientras se arrastra la tarjeta
+    feedback_arrastre = ft.Container(
+        width=230,
+        bgcolor=colors.ORANGE_700,
+        padding=ft.padding.symmetric(horizontal=14, vertical=10),
+        border_radius=10,
+        shadow=ft.BoxShadow(
+            spread_radius=2,
+            blur_radius=10,
+            color=with_opacity(0.35, colors.BLACK),
+        ),
+        content=ft.Row(
+            spacing=8,
+            tight=True,
+            controls=[
+                ft.Icon(icons.DRAG_INDICATOR, color=colors.WHITE, size=20),
+                ft.Text(
+                    f"Moviendo Pedido #{pedido_id}",
+                    size=15,
+                    weight=ft.FontWeight.BOLD,
+                    color=colors.WHITE,
+                ),
+            ],
+        ),
+    )
+
+    draggable = ft.Draggable(
+        group="cola_pedidos_cocina",
+        data=str(pedido_id),
+        content=contenedor_visual_tarjeta,
+        content_feedback=feedback_arrastre,
+    )
+
+    def al_entrar_arrastre(_e: ft.DragTargetEvent) -> None:
+        contenedor_visual_tarjeta.border = ft.border.all(3, colors.BLUE_700)
+        contenedor_visual_tarjeta.bgcolor = colors.BLUE_50
+        page.update()
+
+    def al_salir_arrastre(_e: ft.DragTargetEvent) -> None:
+        contenedor_visual_tarjeta.border = ft.border.all(1.5, colors.BLUE_GREY_200)
+        contenedor_visual_tarjeta.bgcolor = colors.WHITE
+        page.update()
+
+    def al_soltar_en_destino(e: ft.DragTargetAcceptEvent) -> None:
+        contenedor_visual_tarjeta.border = ft.border.all(1.5, colors.BLUE_GREY_200)
+        contenedor_visual_tarjeta.bgcolor = colors.WHITE
+        try:
+            ctrl_origen = page.get_control(e.src_id)
+            id_origen = int(ctrl_origen.data)
+            if id_origen != pedido_id:
+                on_arrastrar_a_destino(id_origen, pedido_id)
+                return
+        except Exception:
+            pass
+        page.update()
+
+    return ft.Container(
+        col=columnas_responsivas,
+        data=pedido_id,
+        content=ft.DragTarget(
+            group="cola_pedidos_cocina",
+            content=draggable,
+            on_will_accept=al_entrar_arrastre,
+            on_leave=al_salir_arrastre,
+            on_accept=al_soltar_en_destino,
+        ),
     )

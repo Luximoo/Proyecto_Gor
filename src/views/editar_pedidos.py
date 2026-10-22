@@ -1,4 +1,4 @@
-"""Vista para meseros (`/editar-pedidos`): listado de pedidos para consultar y editar."""
+"""Vista para meseros (`/editar-pedidos`): editar pedidos y reordenar su prioridad arrastrándolos."""
 
 from __future__ import annotations
 
@@ -7,6 +7,7 @@ import logging
 import flet as ft
 
 from data.repositorio import (
+    actualizar_orden_pedidos,
     obtener_pedidos_completados_hoy,
     obtener_pedidos_pendientes,
 )
@@ -17,8 +18,10 @@ from ui.theme import COLOR_FONDO_PAGINA, colors, icons
 
 def view_editar_pedidos(page: ft.Page) -> ft.View:
     """
-    Construye la pantalla exclusiva para que el mesero busque y edite pedidos
-    (tanto los que siguen 'En cocina' como los 'Completados' del día).
+    Construye la pantalla exclusiva para que el mesero:
+    1. Reordene qué pedidos salen primero y cuáles después arrastrando las tarjetas
+       (o con las flechas de posición), reflejándose en vivo en Cocina.
+    2. Consulte y edite cualquier pedido ('En orden' o 'Completados').
     """
     estado = {
         "tab_activa": "PENDIENTES",  # "PENDIENTES" | "COMPLETADOS"
@@ -27,6 +30,7 @@ def view_editar_pedidos(page: ft.Page) -> ft.View:
     }
 
     fila_filtros = ft.Row(spacing=10, alignment=ft.MainAxisAlignment.CENTER)
+    instruccion_arrastre = ft.Container()
     lista_tarjetas = ft.ResponsiveRow(spacing=12, run_spacing=12)
 
     def cargar_datos_bd() -> None:
@@ -48,6 +52,50 @@ def view_editar_pedidos(page: ft.Page) -> ft.View:
 
     def abrir_edicion(pedido_id: int) -> None:
         page.go(f"/pedido/{pedido_id}")
+
+    def persistir_nuevo_orden(lista_pendientes: list[Pedido]) -> None:
+        ids_ordenados = [int(p.id) for p in lista_pendientes if p.id is not None]
+        try:
+            actualizar_orden_pedidos(ids_ordenados)
+        except Exception as err:
+            logging.error(f"Error al guardar el nuevo orden de pedidos: {err}")
+
+    def reordenar_por_arrastre(id_origen: int, id_destino: int) -> None:
+        """Mueve el pedido `id_origen` al lugar donde estaba `id_destino` y guarda el orden en BD."""
+        pendientes: list[Pedido] = list(estado["pendientes"])
+        idx_origen = next((i for i, p in enumerate(pendientes) if p.id == id_origen), None)
+        idx_destino = next((i for i, p in enumerate(pendientes) if p.id == id_destino), None)
+
+        if idx_origen is None or idx_destino is None or idx_origen == idx_destino:
+            return
+
+        pedido_movido = pendientes.pop(idx_origen)
+        pendientes.insert(idx_destino, pedido_movido)
+
+        estado["pendientes"] = pendientes
+        persistir_nuevo_orden(pendientes)
+        renderizar()
+        page.update()
+
+    def mover_un_paso(pedido_id: int, delta: int) -> None:
+        """Mueve un pedido una posición antes (`delta=-1`) o después (`delta=+1`)."""
+        pendientes: list[Pedido] = list(estado["pendientes"])
+        idx_actual = next((i for i, p in enumerate(pendientes) if p.id == pedido_id), None)
+        if idx_actual is None:
+            return
+
+        nuevo_idx = idx_actual + delta
+        if not (0 <= nuevo_idx < len(pendientes)):
+            return
+
+        pendientes[idx_actual], pendientes[nuevo_idx] = (
+            pendientes[nuevo_idx],
+            pendientes[idx_actual],
+        )
+        estado["pendientes"] = pendientes
+        persistir_nuevo_orden(pendientes)
+        renderizar()
+        page.update()
 
     def renderizar() -> None:
         tab_activa = str(estado["tab_activa"])
@@ -118,6 +166,27 @@ def view_editar_pedidos(page: ft.Page) -> ft.View:
             ),
         ]
 
+        instruccion_arrastre.visible = es_pendientes and len(pendientes) > 1
+        instruccion_arrastre.content = ft.Container(
+            bgcolor=colors.BLUE_50,
+            border=ft.border.all(1, colors.BLUE_200),
+            border_radius=8,
+            padding=ft.padding.symmetric(horizontal=10, vertical=6),
+            content=ft.Row(
+                spacing=6,
+                controls=[
+                    ft.Icon(icons.DRAG_INDICATOR, size=18, color=colors.BLUE_700),
+                    ft.Text(
+                        "Arrastra una tarjeta sobre otra (o usa ◀ ▶) para cambiar qué pedido sale primero en Cocina.",
+                        size=12,
+                        weight=ft.FontWeight.W_500,
+                        color=colors.BLUE_900,
+                        expand=True,
+                    ),
+                ],
+            ),
+        )
+
         pedidos_mostrar = pendientes if es_pendientes else completados
 
         if not pedidos_mostrar:
@@ -128,6 +197,7 @@ def view_editar_pedidos(page: ft.Page) -> ft.View:
             )
             lista_tarjetas.controls = [
                 ft.Container(
+                    col={"xs": 12},
                     padding=ft.padding.symmetric(vertical=45, horizontal=20),
                     alignment=ft.alignment.center,
                     content=ft.Text(
@@ -141,9 +211,18 @@ def view_editar_pedidos(page: ft.Page) -> ft.View:
             ]
             return
 
+        total_cola = len(pendientes)
         lista_tarjetas.controls = [
-            crear_tarjeta_pedido_mesero(pedido=ped, on_editar=abrir_edicion)
-            for ped in pedidos_mostrar
+            crear_tarjeta_pedido_mesero(
+                page=page,
+                pedido=ped,
+                on_editar=abrir_edicion,
+                posicion_cola=idx if es_pendientes else None,
+                total_en_cola=total_cola if es_pendientes else 0,
+                on_arrastrar_a_destino=reordenar_por_arrastre if es_pendientes else None,
+                on_mover_paso=mover_un_paso if es_pendientes else None,
+            )
+            for idx, ped in enumerate(pedidos_mostrar, start=1)
         ]
 
     cargar_datos_bd()
@@ -154,7 +233,7 @@ def view_editar_pedidos(page: ft.Page) -> ft.View:
         vertical_alignment=ft.CrossAxisAlignment.CENTER,
         controls=[
             ft.Text(
-                "Editar Pedidos",
+                "Editar y Ordenar Pedidos",
                 size=20,
                 weight=ft.FontWeight.BOLD,
                 color=colors.BLACK87,
@@ -175,6 +254,7 @@ def view_editar_pedidos(page: ft.Page) -> ft.View:
         controls=[
             encabezado,
             fila_filtros,
+            instruccion_arrastre,
             lista_tarjetas,
             navegacion,
         ],

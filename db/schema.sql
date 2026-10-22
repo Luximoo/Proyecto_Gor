@@ -68,11 +68,12 @@ CREATE TABLE pedidos (
     id INT AUTO_INCREMENT PRIMARY KEY COMMENT 'Número de pedido',
     tipo_servicio ENUM('MESA', 'LLEVAR') NOT NULL COMMENT 'MESA = Comer ahí, LLEVAR = Para llevar',
     estado ENUM('PENDIENTE', 'COMPLETADO') NOT NULL DEFAULT 'PENDIENTE',
+    orden_prioridad INT NOT NULL DEFAULT 0 COMMENT 'Posición en la cola de cocina (menor = sale primero)',
     version INT NOT NULL DEFAULT 1 COMMENT 'Se incrementa en cada edición para control de cambios',
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     completed_at TIMESTAMP NULL DEFAULT NULL,
-    INDEX idx_pedidos_estado_created (estado, created_at)
+    INDEX idx_pedidos_estado_orden (estado, orden_prioridad, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- -----------------------------------------------------------------------------

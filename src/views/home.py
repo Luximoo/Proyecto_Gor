@@ -109,8 +109,9 @@ def view_home(page: ft.Page) -> ft.View:
             crear_tarjeta_pedido_cocina(
                 pedido=ped,
                 on_completar=_completar_pedido_accion,
+                posicion_cola=idx,
             )
-            for ped in pendientes
+            for idx, ped in enumerate(pendientes, start=1)
         ]
 
     def _sincronizar_desde_bd(forzar_render: bool = False) -> bool:
