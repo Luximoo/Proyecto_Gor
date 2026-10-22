@@ -20,6 +20,7 @@ from domain.modelos import (
     formatear_pedido,
 )
 from ui.components import crear_navegacion
+from ui.personalizacion import abrir_modal_personalizacion
 from ui.theme import (
     COLOR_FONDO_PAGINA,
     colors,
@@ -148,14 +149,8 @@ def view_realizar_pedido(
 
     def abrir_editor_item(indice: int) -> None:
         plato = obtener_plato_activo()
-        if on_abrir_personalizacion is not None:
-            on_abrir_personalizacion(page, catalogo, plato, indice, refrescar_todo)
-        else:
-            _mostrar_aviso(
-                page,
-                "El editor de personalización completa se habilita en la Fase 5.",
-                es_error=False,
-            )
+        callback_editor = on_abrir_personalizacion or abrir_modal_personalizacion
+        callback_editor(page, catalogo, plato, indice, refrescar_todo)
 
     def confirmar_envio(_e: ft.ControlEvent) -> None:
         pedido = obtener_pedido()
