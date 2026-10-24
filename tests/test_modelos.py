@@ -13,6 +13,7 @@ from domain.modelos import (
     TipoServicio,
     catalogo_por_defecto,
     formatear_pedido,
+    seleccionar_pedidos_visibles_cocina,
 )
 
 
@@ -186,3 +187,33 @@ def test_division_por_platos_y_limpieza_de_platos_vacios() -> None:
     assert "── Plato 2 ──" in resumen
     assert "1× Sope Chorizo (sin Cebolla)" in resumen
     assert "1× Gordita Papas (+ Crema · + Queso)" in resumen
+
+
+def test_seleccion_pedidos_visibles_cocina_segun_tamano() -> None:
+    """
+    Si el pedido es de 3 o 4 platos (grande), se muestra 1 solo en pantalla;
+    si son pedidos chicos de 1 plato, se muestran hasta 2 a la par.
+    """
+    chico_1 = Pedido(id=1, tipo_servicio=TipoServicio.MESA)
+    chico_1.platos[0].agregar_item(Item(producto="Gordita", guiso="Papas", cantidad=2))
+
+    chico_2 = Pedido(id=2, tipo_servicio=TipoServicio.LLEVAR)
+    chico_2.platos[0].agregar_item(Item(producto="Sope", guiso="Rajas", cantidad=1))
+
+    grande_3_platos = Pedido(id=3, tipo_servicio=TipoServicio.MESA)
+    grande_3_platos.platos[0].agregar_item(Item(producto="Gordita", guiso="Papas", cantidad=2))
+    grande_3_platos.agregar_plato().agregar_item(Item(producto="Gordita", guiso="Rajas", cantidad=2))
+    grande_3_platos.agregar_plato().agregar_item(Item(producto="Sope", guiso="Chorizo", cantidad=1))
+
+    # Dos pedidos chicos al inicio -> se muestran los 2 a la par
+    visibles_dos = seleccionar_pedidos_visibles_cocina([chico_1, chico_2, grande_3_platos])
+    assert [p.id for p in visibles_dos] == [1, 2]
+
+    # Un pedido grande de 3 platos al inicio -> se muestra 1 solo
+    visibles_uno = seleccionar_pedidos_visibles_cocina([grande_3_platos, chico_1, chico_2])
+    assert [p.id for p in visibles_uno] == [3]
+
+    # Si el mesero marca un pedido chico como 'solo_en_cocina' -> se muestra 1 solo
+    chico_1.solo_en_cocina = True
+    visibles_forzado = seleccionar_pedidos_visibles_cocina([chico_1, chico_2])
+    assert [p.id for p in visibles_forzado] == [1]

@@ -15,7 +15,24 @@ if not hasattr(ft, "Colors") and _colors:
 if not hasattr(ft, "Icons") and _icons:
     ft.Icons = _icons
 
+# Compatibilidad entre flet-web 0.28.x y versiones recientes de FastAPI (que eliminaron openapi_prefix)
+try:
+    import inspect
+    import fastapi
+
+    if "openapi_prefix" not in inspect.signature(fastapi.FastAPI.__init__).parameters:
+        _orig_fastapi_init = fastapi.FastAPI.__init__
+
+        def _patched_fastapi_init(self, *args, **kwargs):
+            kwargs.pop("openapi_prefix", None)
+            return _orig_fastapi_init(self, *args, **kwargs)
+
+        fastapi.FastAPI.__init__ = _patched_fastapi_init
+except Exception:
+    pass
+
 from config import WINDOW_HEIGHT, WINDOW_WIDTH
+from views.corte import view_corte_dia
 from views.editar_pedidos import view_editar_pedidos
 from views.home import view_home
 from views.pedido import view_realizar_pedido
@@ -58,6 +75,8 @@ def main(page: ft.Page) -> None:
 
         if pedido_id_editar is not None:
             page.views.append(view_realizar_pedido(page, pedido_id_editar=pedido_id_editar))
+        elif ruta == "/corte":
+            page.views.append(view_corte_dia(page))
         elif ruta == "/editar-pedidos":
             page.views.append(view_editar_pedidos(page))
         elif ruta in ("/Pedidos", "/pedido"):

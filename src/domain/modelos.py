@@ -7,6 +7,21 @@ from datetime import datetime
 from enum import Enum
 
 
+PRECIOS_POR_DEFECTO: dict[str, float] = {
+    "GORDITA": 17.0,
+    "SOPE_FRIJOLES": 30.0,
+    "SOPE_GUISO": 35.0,
+    "QUESADILLA": 45.0,
+}
+
+
+def formatear_moneda(monto: float) -> str:
+    """Formatea un monto en pesos (ej. '$85' si es entero o '$85.50' si tiene decimales)."""
+    if abs(monto - round(monto)) < 0.005:
+        return f"${int(round(monto))}"
+    return f"${monto:.2f}"
+
+
 class ErrorValidacionDominio(ValueError):
     """Excepción lanzada cuando una operación viola las reglas del dominio."""
 
@@ -146,6 +161,66 @@ class Item:
         """Encabezado principal de la línea (ej. '3× Gordita Papas')."""
         return f"{self.cantidad}× {self.producto} {self.guiso}"
 
+    def texto_con_extras(self) -> str:
+        """Devuelve la frase natural de extras (ej. 'con Queso y Crema') o cadena vacía."""
+        extras = self.extras
+        if not extras:
+            return ""
+        if len(extras) == 1:
+            return f"con {extras[0]}"
+        return "con " + ", ".join(extras[:-1]) + f" y {extras[-1]}"
+
+    def texto_sin_ingredientes(self) -> str:
+        """Devuelve la frase natural de exclusiones (ej. 'sin Cebolla y sin Verdura') o cadena vacía."""
+        sins = self.sin_ingredientes
+        if not sins:
+            return ""
+        if len(sins) == 1:
+            return f"sin {sins[0]}"
+        return "sin " + " y sin ".join(sins)
+
+    def formatear_descripcion_completa(self) -> str:
+        """
+        Devuelve el nombre completo corrido para cocina:
+        ej. 'Gordita Chicharron con Queso' o 'Sope Chicharron sin Queso'.
+        """
+        partes = [f"{self.producto} {self.guiso}"]
+        txt_con = self.texto_con_extras()
+        txt_sin = self.texto_sin_ingredientes()
+        if txt_con:
+            partes.append(txt_con)
+        if txt_sin:
+            partes.append(txt_sin)
+        if self.nota:
+            partes.append(f"({self.nota})")
+        return " ".join(partes)
+
+    def calcular_precio_unitario(self, precios: dict[str, float] | None = None) -> float:
+        """
+        Calcula el precio unitario del platillo según las reglas del negocio:
+        - Gordita: $17 (o valor configurado en 'GORDITA')
+        - Sope de Frijoles: $30 ('SOPE_FRIJOLES')
+        - Sope de cualquier otro guiso: $35 ('SOPE_GUISO')
+        - Quesadilla: $45 ('QUESADILLA')
+        """
+        tabla = precios or PRECIOS_POR_DEFECTO
+        prod = self.producto.strip().lower()
+        guiso = self.guiso.strip().lower()
+
+        if prod == "gordita":
+            return float(tabla.get("GORDITA", PRECIOS_POR_DEFECTO["GORDITA"]))
+        if prod == "sope":
+            if "frijol" in guiso:
+                return float(tabla.get("SOPE_FRIJOLES", PRECIOS_POR_DEFECTO["SOPE_FRIJOLES"]))
+            return float(tabla.get("SOPE_GUISO", PRECIOS_POR_DEFECTO["SOPE_GUISO"]))
+        if prod == "quesadilla":
+            return float(tabla.get("QUESADILLA", PRECIOS_POR_DEFECTO["QUESADILLA"]))
+        return float(tabla.get(self.producto.upper(), 30.0))
+
+    def calcular_subtotal(self, precios: dict[str, float] | None = None) -> float:
+        """Devuelve el precio total de esta línea (`cantidad * precio_unitario`)."""
+        return round(self.cantidad * self.calcular_precio_unitario(precios), 2)
+
     def formatear_detalle(self) -> str:
         """Subtítulo con modificadores y nota (ej. '+ Queso · + Crema · Nota: bien dorada')."""
         partes = [m.formatear() for m in self.modificadores]
@@ -213,6 +288,7 @@ def catalogo_por_defecto() -> Catalogo:
     guisos = (
         "Chicharron",
         "Papas",
+        "Frijoles",
         "Huevo rojo",
         "Huevo verde",
         "Nopales",
@@ -232,6 +308,12 @@ def catalogo_por_defecto() -> Catalogo:
                 nombre="Sope",
                 guisos_base=guisos,
                 extras_permitidos=(*guisos, "Queso"),
+                sin_permitidos=("Cebolla", "Verdura", "Crema", "Queso"),
+            ),
+            "Quesadilla": ReglasProducto(
+                nombre="Quesadilla",
+                guisos_base=guisos,
+                extras_permitidos=(*guisos, "Queso", "Crema"),
                 sin_permitidos=("Cebolla", "Verdura", "Crema", "Queso"),
             ),
         }
@@ -317,27 +399,48 @@ class Plato:
     def esta_vacio(self) -> bool:
         return len(self.items) == 0
 
+    def calcular_subtotal(self, precios: dict[str, float] | None = None) -> float:
+        """Suma el importe en pesos de todos los items de este plato."""
+        return round(sum(item.calcular_subtotal(precios) for item in self.items), 2)
+
 
 @dataclass
 class Pedido:
     """Entidad raíz que representa un pedido completo con uno o más platos."""
 
     id: int | None = None
+    numero_orden_dia: int = 0
+    nombre_cliente: str = ""
     tipo_servicio: TipoServicio | None = None
     estado: EstadoPedido = EstadoPedido.PENDIENTE
     version: int = 1
+    solo_en_cocina: bool = False
+    total_cobrado: float = 0.0
+    pago_cliente: float = 0.0
+    cambio_entregado: float = 0.0
     platos: list[Plato] = field(default_factory=lambda: [Plato(numero=1)])
     created_at: datetime | None = None
     updated_at: datetime | None = None
     completed_at: datetime | None = None
 
     def __post_init__(self) -> None:
+        self.nombre_cliente = (self.nombre_cliente or "").strip()
         if self.tipo_servicio is not None and not isinstance(self.tipo_servicio, TipoServicio):
             self.tipo_servicio = TipoServicio(self.tipo_servicio)
         if not isinstance(self.estado, EstadoPedido):
             self.estado = EstadoPedido(self.estado)
         if not self.platos:
             self.platos = [Plato(numero=1)]
+
+    @property
+    def numero_pedido_mostrar(self) -> int:
+        """Número de llegada del pedido en el día (Pedido 1, Pedido 2, ...)."""
+        return self.numero_orden_dia if self.numero_orden_dia > 0 else (self.id or 1)
+
+    @property
+    def nombre_mostrar(self) -> str:
+        """Devuelve el nombre del cliente o un texto por defecto si es un pedido antiguo sin nombre."""
+        return self.nombre_cliente.strip() if self.nombre_cliente.strip() else "Cliente"
 
     def obtener_plato(self, numero: int) -> Plato:
         """Devuelve el plato con el número indicado."""
@@ -382,10 +485,45 @@ class Pedido:
         """Cantidad total de piezas sumando todos los platos."""
         return sum(plato.total_piezas for plato in self.platos)
 
+    def calcular_total(self, precios: dict[str, float] | None = None) -> float:
+        """Calcula el total en pesos de todo el pedido."""
+        return round(sum(plato.calcular_subtotal(precios) for plato in self.platos), 2)
+
     @property
     def total_platos_con_items(self) -> int:
         """Número de platos que contienen al menos un platillo."""
         return sum(1 for plato in self.platos if not plato.esta_vacio)
+
+    @property
+    def total_lineas_items(self) -> int:
+        """Cantidad total de renglones de platillos sumando todos los platos activos."""
+        return sum(len(plato.items) for plato in self.platos if not plato.esta_vacio)
+
+    @property
+    def es_grande_por_tamano(self) -> bool:
+        """
+        Determina automáticamente si el pedido es grande para la pantalla de tablet:
+        - Tiene 3 o más platos, o
+        - Tiene 2 platos con más de 4 renglones en total, o
+        - Tiene 5 o más renglones distintos de platillos.
+        """
+        num_platos = self.total_platos_con_items
+        num_lineas = self.total_lineas_items
+        if num_platos >= 3:
+            return True
+        if num_platos == 2 and num_lineas > 4:
+            return True
+        if num_lineas >= 5:
+            return True
+        return False
+
+    @property
+    def requiere_pantalla_completa(self) -> bool:
+        """
+        Indica si este pedido debe mostrarse solo (1 en pantalla completa) en Cocina,
+        ya sea por su tamaño (3-4+ platos) o porque el mesero activó `solo_en_cocina`.
+        """
+        return bool(self.solo_en_cocina) or self.es_grande_por_tamano
 
     def validar_para_envio(self, catalogo: Catalogo | None = None) -> None:
         """
@@ -414,7 +552,12 @@ class Pedido:
 
 def formatear_pedido(pedido: Pedido) -> str:
     """Genera una representación en texto estructurada por platos para resúmenes y confirmaciones."""
-    encabezado_id = f"Pedido #{pedido.id}" if pedido.id is not None else "Pedido nuevo"
+    if pedido.nombre_cliente:
+        encabezado_id = f"Cliente: {pedido.nombre_cliente}"
+    elif pedido.id is not None:
+        encabezado_id = f"Pedido #{pedido.id}"
+    else:
+        encabezado_id = "Pedido nuevo"
     servicio = pedido.tipo_servicio.etiqueta if pedido.tipo_servicio else "Sin tipo de servicio"
     lineas = [f"{encabezado_id} · {servicio}"]
 
@@ -425,3 +568,25 @@ def formatear_pedido(pedido: Pedido) -> str:
             lineas.append(f"  {item.formatear_linea()}")
 
     return "\n".join(lineas)
+
+
+def seleccionar_pedidos_visibles_cocina(pendientes: list[Pedido]) -> list[Pedido]:
+    """
+    Calcula qué pedidos deben mostrarse simultáneamente en la tablet de Cocina
+    para que NUNCA sea necesario hacer scroll:
+    - Si el primer pedido es grande (3-4 platos o marcado como 'solo en pantalla'),
+      se muestra únicamente ese pedido ocupando toda la pantalla.
+    - Si el primer pedido es chico (1-2 platos compactos) y el segundo también es chico,
+      se muestran los 2 pedidos a la par (mitad y mitad).
+    """
+    if not pendientes:
+        return []
+
+    primero = pendientes[0]
+    if primero.requiere_pantalla_completa:
+        return [primero]
+
+    if len(pendientes) >= 2 and not pendientes[1].requiere_pantalla_completa:
+        return [primero, pendientes[1]]
+
+    return [primero]

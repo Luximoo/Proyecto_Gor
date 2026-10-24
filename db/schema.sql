@@ -18,6 +18,8 @@ DROP TABLE IF EXISTS item_modificadores;
 DROP TABLE IF EXISTS items;
 DROP TABLE IF EXISTS platos;
 DROP TABLE IF EXISTS pedidos;
+DROP TABLE IF EXISTS jornadas;
+DROP TABLE IF EXISTS precios_menu;
 DROP TABLE IF EXISTS producto_ingrediente;
 DROP TABLE IF EXISTS ingredientes;
 DROP TABLE IF EXISTS productos;
@@ -62,18 +64,46 @@ CREATE TABLE producto_ingrediente (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- -----------------------------------------------------------------------------
--- 4. Cabecera de Pedidos
+-- 4. Precios del Menú y Jornadas / Cortes del Día
+-- -----------------------------------------------------------------------------
+CREATE TABLE precios_menu (
+    clave VARCHAR(50) PRIMARY KEY,
+    precio DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE jornadas (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    estado ENUM('ABIERTA', 'CERRADA') NOT NULL DEFAULT 'ABIERTA',
+    iniciada_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    cerrada_at TIMESTAMP NULL DEFAULT NULL,
+    total_pedidos INT NOT NULL DEFAULT 0,
+    total_platillos INT NOT NULL DEFAULT 0,
+    total_ventas DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    INDEX idx_jornadas_estado (estado, iniciada_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- -----------------------------------------------------------------------------
+-- 5. Cabecera de Pedidos
 -- -----------------------------------------------------------------------------
 CREATE TABLE pedidos (
     id INT AUTO_INCREMENT PRIMARY KEY COMMENT 'Número de pedido',
+    jornada_id INT NULL DEFAULT NULL COMMENT 'Jornada (día/turno) a la que pertenece el pedido',
+    numero_orden_dia INT NOT NULL DEFAULT 0 COMMENT 'Número de llegada del pedido en el día (1, 2, 3...)',
+    nombre_cliente VARCHAR(100) NOT NULL DEFAULT '' COMMENT 'Nombre de la persona o mesa del pedido',
     tipo_servicio ENUM('MESA', 'LLEVAR') NOT NULL COMMENT 'MESA = Comer ahí, LLEVAR = Para llevar',
     estado ENUM('PENDIENTE', 'COMPLETADO') NOT NULL DEFAULT 'PENDIENTE',
     orden_prioridad INT NOT NULL DEFAULT 0 COMMENT 'Posición en la cola de cocina (menor = sale primero)',
+    solo_en_cocina TINYINT(1) NOT NULL DEFAULT 0 COMMENT '1 = Mostrar solo este pedido en pantalla completa',
+    total_cobrado DECIMAL(10,2) NOT NULL DEFAULT 0.00 COMMENT 'Monto total del pedido en pesos',
+    pago_cliente DECIMAL(10,2) NOT NULL DEFAULT 0.00 COMMENT 'Monto con el que pagó el cliente',
+    cambio_entregado DECIMAL(10,2) NOT NULL DEFAULT 0.00 COMMENT 'Cambio regresado al cliente',
     version INT NOT NULL DEFAULT 1 COMMENT 'Se incrementa en cada edición para control de cambios',
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     completed_at TIMESTAMP NULL DEFAULT NULL,
-    INDEX idx_pedidos_estado_orden (estado, orden_prioridad, created_at)
+    INDEX idx_pedidos_estado_orden (estado, orden_prioridad, created_at),
+    INDEX idx_pedidos_jornada (jornada_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- -----------------------------------------------------------------------------

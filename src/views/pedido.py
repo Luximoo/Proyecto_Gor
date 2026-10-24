@@ -15,8 +15,11 @@ from data.repositorio import (
     cargar_catalogo,
     cargar_pedido,
     guardar_pedido,
+    iniciar_jornada_dia,
+    obtener_precios_menu,
 )
 from domain.modelos import (
+    PRECIOS_POR_DEFECTO,
     Catalogo,
     ErrorValidacionDominio,
     EstadoPedido,
@@ -25,6 +28,7 @@ from domain.modelos import (
     Plato,
     TipoServicio,
     catalogo_por_defecto,
+    formatear_moneda,
     formatear_pedido,
 )
 from ui.components import crear_navegacion
@@ -68,7 +72,7 @@ def _cargar_catalogo_seguro() -> Catalogo:
 def _huella_estado_pedido(pedido: Pedido) -> str:
     """Genera una representación textual del estado actual del pedido para detectar cambios."""
     servicio = pedido.tipo_servicio.value if pedido.tipo_servicio else "NONE"
-    partes = [f"S:{servicio}"]
+    partes = [f"N:{pedido.nombre_cliente.strip()}", f"S:{servicio}"]
     for plato in pedido.platos:
         if plato.esta_vacio:
             continue
@@ -91,7 +95,11 @@ def view_realizar_pedido(
       de versión (bloqueo optimista) y aviso al salir con cambios sin guardar.
     """
     catalogo = _cargar_catalogo_seguro()
-    productos_disponibles = catalogo.nombres_productos or ["Gordita", "Sope"]
+    try:
+        precios_menu = obtener_precios_menu()
+    except Exception:
+        precios_menu = dict(PRECIOS_POR_DEFECTO)
+    productos_disponibles = catalogo.nombres_productos or ["Gordita", "Sope", "Quesadilla"]
     es_modo_edicion = pedido_id_editar is not None
 
     pedido_inicial = Pedido(tipo_servicio=None)
@@ -299,14 +307,43 @@ def view_realizar_pedido(
             return
 
         resumen_texto = formatear_pedido(pedido)
+        total_confirmar = pedido.calcular_total(precios_menu)
         titulo_dialogo = (
-            f"Guardar cambios en Pedido #{pedido.id}"
+            f"Guardar cambios de {pedido.nombre_mostrar}"
             if es_modo_edicion
-            else "Confirmar pedido nuevo"
+            else "Confirmar pedido"
         )
         texto_boton_confirmar = "Guardar Cambios" if es_modo_edicion else "Confirmar y Enviar"
 
+        input_nombre_modal = ft.TextField(
+            value=pedido.nombre_cliente,
+            label="¿A nombre de quién es el pedido?",
+            hint_text="Ej: Juan, María, Mesa 3...",
+            prefix_icon=icons.PERSON,
+            autofocus=True,
+            bgcolor=colors.WHITE,
+            border_radius=10,
+            border_color=colors.ORANGE_700,
+            focused_border_color=colors.DEEP_ORANGE_700,
+            text_size=16,
+            content_padding=ft.padding.symmetric(horizontal=12, vertical=10),
+        )
+
+        def limpiar_error_nombre(_ev: ft.ControlEvent) -> None:
+            if input_nombre_modal.error_text:
+                input_nombre_modal.error_text = None
+                page.update()
+
+        input_nombre_modal.on_change = limpiar_error_nombre
+
         def ejecutar_guardado(_ev: ft.ControlEvent) -> None:
+            nombre_ingresado = (input_nombre_modal.value or "").strip()
+            if not nombre_ingresado:
+                input_nombre_modal.error_text = "Escribe el nombre del cliente (ej. Juan)"
+                page.update()
+                return
+
+            pedido.nombre_cliente = nombre_ingresado
             page.close(dialogo_confirmar)
             try:
                 if es_modo_edicion:
@@ -318,15 +355,16 @@ def view_realizar_pedido(
                     )
                     _mostrar_aviso(
                         page,
-                        f"Pedido #{actualizado.id} actualizado (edición #{actualizado.version - 1})",
+                        f"Pedido de {actualizado.nombre_mostrar} actualizado",
                         es_error=False,
                     )
                     page.go("/editar-pedidos")
                 else:
+                    iniciar_jornada_dia()
                     guardado = guardar_pedido(pedido, catalogo)
                     _mostrar_aviso(
                         page,
-                        f"Pedido #{guardado.id} ({guardado.tipo_servicio.etiqueta}) enviado a cocina",
+                        f"Pedido de {guardado.nombre_mostrar} ({guardado.tipo_servicio.etiqueta}) enviado a cocina",
                         es_error=False,
                     )
                     nuevo_limpio = Pedido(tipo_servicio=None)
@@ -343,19 +381,53 @@ def view_realizar_pedido(
                 logging.error(f"Error inesperado al guardar pedido: {exc}")
                 _mostrar_aviso(page, f"Error al guardar: {exc}", es_error=True)
 
+        input_nombre_modal.on_submit = ejecutar_guardado
+
         dialogo_confirmar = ft.AlertDialog(
             modal=True,
             title=ft.Text(titulo_dialogo, weight=ft.FontWeight.BOLD, size=18),
             content=ft.Container(
-                width=300,
-                padding=ft.padding.all(10),
-                bgcolor=colors.BLUE_GREY_50,
-                border_radius=10,
-                content=ft.Text(
-                    resumen_texto,
-                    size=14,
-                    color=colors.BLACK87,
-                    weight=ft.FontWeight.W_500,
+                width=310,
+                content=ft.Column(
+                    tight=True,
+                    spacing=12,
+                    controls=[
+                        input_nombre_modal,
+                        ft.Container(
+                            padding=ft.padding.symmetric(horizontal=12, vertical=8),
+                            bgcolor=colors.GREEN_50,
+                            border=ft.border.all(1.5, colors.GREEN_600),
+                            border_radius=10,
+                            content=ft.Row(
+                                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                                controls=[
+                                    ft.Text(
+                                        "Total del pedido:",
+                                        size=15,
+                                        weight=ft.FontWeight.BOLD,
+                                        color=colors.GREEN_900,
+                                    ),
+                                    ft.Text(
+                                        formatear_moneda(total_confirmar),
+                                        size=20,
+                                        weight=ft.FontWeight.BOLD,
+                                        color=colors.GREEN_900,
+                                    ),
+                                ],
+                            ),
+                        ),
+                        ft.Container(
+                            padding=ft.padding.all(10),
+                            bgcolor=colors.BLUE_GREY_50,
+                            border_radius=10,
+                            content=ft.Text(
+                                resumen_texto,
+                                size=14,
+                                color=colors.BLACK87,
+                                weight=ft.FontWeight.W_500,
+                            ),
+                        ),
+                    ],
                 ),
             ),
             actions=[
@@ -385,7 +457,7 @@ def view_realizar_pedido(
                     controls=[
                         ft.Icon(icons.EDIT_NOTE, color=colors.DEEP_ORANGE_700, size=24),
                         ft.Text(
-                            f"Editando Pedido #{pedido.id}",
+                            f"Editando pedido de {pedido.nombre_mostrar}",
                             size=19,
                             weight=ft.FontWeight.BOLD,
                             color=colors.BLACK87,
@@ -615,9 +687,10 @@ def view_realizar_pedido(
         plato = obtener_plato_activo()
 
         mostrar_boton_borrar_plato = len(pedido.platos) > 1 or not plato.esta_vacio
+        subtotal_plato = plato.calcular_subtotal(precios_menu)
         encabezado_plato_activo.controls = [
             ft.Text(
-                f"PLATO {plato.numero} ({plato.total_piezas} pzs)",
+                f"PLATO {plato.numero} ({plato.total_piezas} pzs · {formatear_moneda(subtotal_plato)})",
                 size=14,
                 weight=ft.FontWeight.BOLD,
                 color=colors.BLUE_GREY_800,
@@ -651,24 +724,15 @@ def view_realizar_pedido(
 
         filas: list[ft.Control] = []
         for idx, item in enumerate(plato.items):
-            detalle = item.formatear_detalle()
+            sub_item = item.calcular_subtotal(precios_menu)
             textos_item: list[ft.Control] = [
                 ft.Text(
-                    item.formatear_titulo(),
+                    f"{item.cantidad}× {item.formatear_descripcion_completa()}  ({formatear_moneda(sub_item)})",
                     size=15,
                     weight=ft.FontWeight.BOLD,
                     color=colors.BLACK87,
                 )
             ]
-            if detalle:
-                textos_item.append(
-                    ft.Text(
-                        detalle,
-                        size=12,
-                        color=colors.DEEP_ORANGE_800,
-                        weight=ft.FontWeight.W_500,
-                    )
-                )
 
             filas.append(
                 ft.Container(
@@ -729,6 +793,7 @@ def view_realizar_pedido(
         pedido = obtener_pedido()
         total_pzs = pedido.total_platillos
         total_platos = max(1, pedido.total_platos_con_items)
+        total_pesos = pedido.calcular_total(precios_menu)
 
         tiene_servicio = pedido.tipo_servicio is not None
         tiene_items = total_pzs > 0
@@ -756,13 +821,13 @@ def view_realizar_pedido(
                         spacing=1,
                         controls=[
                             ft.Text(
-                                f"{total_pzs} platillo{'s' if total_pzs != 1 else ''}",
-                                size=15,
+                                f"Total: {formatear_moneda(total_pesos)}",
+                                size=17,
                                 weight=ft.FontWeight.BOLD,
-                                color=colors.BLACK87,
+                                color=colors.GREEN_900,
                             ),
                             ft.Text(
-                                f"en {total_platos} plato{'s' if total_platos != 1 else ''}",
+                                f"{total_pzs} platillo{'s' if total_pzs != 1 else ''} en {total_platos} plato{'s' if total_platos != 1 else ''}",
                                 size=12,
                                 color=colors.BLACK54,
                             ),
